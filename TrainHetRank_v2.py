@@ -1,87 +1,70 @@
-__author__ = 'iankuoli'
-
 import numpy as np
 from scipy import *
 from scipy.sparse import *
-from sklearn.preprocessing import normalize
 
 import ReadFile
 import LA
 
-valAlpha = 0.8
-iterNum = 20
-valBeta = 10000.
-valLR = 10.
+
+__author__ = 'IanKuo'
+
+
+val_alpha = 0.8
+iter_num = 20
+val_beta = 10000.
+val_learning_rate = 10.
 
 valConvergeThreshold_J = 10e-120
 
-strUITGraphPath = 'lastfm/UIT_GroundTruth.txt'
-strUUGraphPath = ''
-strIIGraphPath = ''
-strTTGraphPath = ''
-strTrainInstancePath = 'lastfm/UIT_Train.txt'
+str_uit_graph_path = 'LastFm/UIT_GroundTruth.txt'
+str_uu_graph_path = ''
+str_ii_graph_path = ''
+str_tt_graph_path = ''
+str_train_instance_path = 'LastFm/UIT_Train.txt'
 
-valFeatureNum_UU = 0
-valFeatureNum_UI = 1
-valFeatureNum_UT = 1
-valFeatureNum_IU = valFeatureNum_UI
-valFeatureNum_II = 0
-valFeatureNum_IT = 1
-valFeatureNum_TU = valFeatureNum_UT
-valFeatureNum_TI = valFeatureNum_IT
-valFeatureNum_TT = 0
+val_feature_num_uu = 0
+val_feature_num_ui = 1
+val_feature_num_ut = 1
+val_feature_num_iu = val_feature_num_ui
+val_feature_num_ii = 0
+val_feature_num_it = 1
+val_feature_num_tu = val_feature_num_ut
+val_feature_num_ti = val_feature_num_it
+val_feature_num_tt = 0
 
-valXiNum_U = 1
-valXiNum_I = 1
+val_sizeof_xi_u = 1
+val_sizeof_xi_i = 1
 
-valUserNum = 0
-valTagNum = 0
-valItemNum = 0
+val_user_num = 0
+val_tag_num = 0
+val_item_num = 0
 
 #
 # dictionary of positive/negative instances
 # (key: (vertex, vertex, vertex), value: [vertex])
 #
-listTrainingInstance = list()
+list_training_instance = list()
+
 
 #
 # vector Theta denotes the feature weight
 #
-
-vecTheta_UU = np.ones(valFeatureNum_UU) / valFeatureNum_UU
-vecTheta_UI = np.ones(valFeatureNum_UI) / valFeatureNum_UI
-vecTheta_UT = np.ones(valFeatureNum_UT) / valFeatureNum_UT
-vecTheta_IU = np.ones(valFeatureNum_UT) / valFeatureNum_UT
-vecTheta_II = np.ones(valFeatureNum_II) / valFeatureNum_II
-vecTheta_IT = np.ones(valFeatureNum_IT) / valFeatureNum_IT
-vecTheta_TU = np.ones(valFeatureNum_IT) / valFeatureNum_IT
-vecTheta_TI = np.ones(valFeatureNum_IT) / valFeatureNum_IT
-vecTheta_TT = np.ones(valFeatureNum_TT) / valFeatureNum_TT
-
-'''
-vecTheta_UU = []
-vecTheta_UI = [-0.24718311]
-vecTheta_UT = [-157.3980413]
-vecTheta_IU = [-0.24718311]
-vecTheta_II = []
-vecTheta_IT = [0.67666965]
-vecTheta_TU = [-157.3980413]
-vecTheta_TI = [0.67666965]
-vecTheta_TT = []
-'''
+vec_theta_uu = np.ones(val_feature_num_uu) / val_feature_num_uu     # []
+vec_theta_ui = np.ones(val_feature_num_ui) / val_feature_num_ui     # [-0.24718311]
+vec_theta_ut = np.ones(val_feature_num_ut) / val_feature_num_ut     # [-157.3980413]
+vec_theta_iu = np.ones(val_feature_num_ut) / val_feature_num_ut     # [-0.24718311]
+vec_theta_ii = np.ones(val_feature_num_ii) / val_feature_num_ii     # []
+vec_theta_it = np.ones(val_feature_num_it) / val_feature_num_it     # [0.67666965]
+vec_theta_tu = np.ones(val_feature_num_it) / val_feature_num_it     # [-157.3980413]
+vec_theta_ti = np.ones(val_feature_num_it) / val_feature_num_it     # [0.67666965]
+vec_theta_tt = np.ones(val_feature_num_tt) / val_feature_num_tt     # []
 
 
 #
 # vector Xi denotes the query weight
 #
-
-vecXi_U = np.ones(valXiNum_U) / valXiNum_U * 1000
-vecXi_I = np.ones(valXiNum_I) / valXiNum_I * 1000
-
-'''
-vecXi_U = [4.5065864]
-vecXi_I = [0.11826436]
-'''
+vec_xi_u = np.ones(val_sizeof_xi_u) / val_sizeof_xi_u * 1000     # [4.5065864]
+vec_xi_i = np.ones(val_sizeof_xi_i) / val_sizeof_xi_i * 1000     # [0.11826436]
 
 
 #
@@ -90,63 +73,63 @@ vecXi_I = [0.11826436]
 # [ IU  II  IT ]
 # [ TU  TI  TT ]
 #
-matX_UU = list()  #valFeatureNum_UU
-matX_UI = list()  #valFeatureNum_UI
-matX_UT = list()  #valFeatureNum_UT
-matX_IU = list()
-matX_II = list()  #valFeatureNum_II
-matX_IT = list()  #valFeatureNum_IT
-matX_TU = list()
-matX_TI = list()
-matX_TT = list()  #valFeatureNum_TT
+tensor_x_uu = list()  # val_feature_num_uu
+tensor_x_ui = list()  # val_feature_num_ui
+tensor_x_ut = list()  # val_feature_num_ut
+tensor_x_iu = list()
+tensor_x_ii = list()  # val_feature_num_ii
+tensor_x_it = list()  # val_feature_num_it
+tensor_x_tu = list()
+tensor_x_ti = list()
+tensor_x_tt = list()  # val_feature_num_tt
 
-gradientA_UU_UU = list()  # partial(matA_UU)/partial(theta_UU)
-gradientA_UU_IU = list()
-gradientA_UU_TU = list()
-gradientA_UI_UI = list()
-gradientA_UI_II = list()
-gradientA_UI_TI = list()
-gradientA_UT_UT = list()
-gradientA_UT_IT = list()
-gradientA_UT_TT = list()
-gradientA_IU_UU = list()
-gradientA_IU_IU = list()
-gradientA_IU_TU = list()
-gradientA_II_UI = list()
-gradientA_II_II = list()
-gradientA_II_TI = list()
-gradientA_IT_UT = list()
-gradientA_IT_IT = list()
-gradientA_IT_TT = list()
-gradientA_TU_UU = list()
-gradientA_TU_IU = list()
-gradientA_TU_TU = list()
-gradientA_TI_UI = list()
-gradientA_TI_II = list()
-gradientA_TI_TI = list()
-gradientA_TT_UT = list()
-gradientA_TT_IT = list()
-gradientA_TT_TT = list()
+drv_mat_a_uu_drv_vec_theta_uu = list()  # partial(mat_a_uu) / partial(theta_UU)
+drv_mat_a_uu_drv_vec_theta_iu = list()
+drv_mat_a_uu_drv_vec_theta_tu = list()
+drv_mat_a_ui_drv_vec_theta_ui = list()
+drv_mat_a_ui_drv_vec_theta_ii = list()
+drv_mat_a_ui_drv_vec_theta_ti = list()
+drv_mat_a_ut_drv_vec_theta_ut = list()
+drv_mat_a_ut_drv_vec_theta_it = list()
+drv_mat_a_ut_drv_vec_theta_tt = list()
+drv_mat_a_iu_drv_vec_theta_uu = list()
+drv_mat_a_iu_drv_vec_theta_iu = list()
+drv_mat_a_iu_drv_vec_theta_tu = list()
+drv_mat_a_ii_drv_vec_theta_ui = list()
+drv_mat_a_ii_drv_vec_theta_ii = list()
+drv_mat_a_ii_drv_vec_theta_ti = list()
+drv_mat_a_it_drv_vec_theta_ut = list()
+drv_mat_a_it_drv_vec_theta_it = list()
+drv_mat_a_it_drv_vec_theta_tt = list()
+drv_mat_a_tu_drv_vec_theta_uu = list()
+drv_mat_a_tu_drv_vec_theta_iu = list()
+drv_mat_a_tu_drv_vec_theta_tu = list()
+drv_mat_a_ti_drv_vec_theta_ui = list()
+drv_mat_a_ti_drv_vec_theta_ii = list()
+drv_mat_a_ti_drv_vec_theta_ti = list()
+drv_mat_a_tt_drv_vec_theta_ut = list()
+drv_mat_a_tt_drv_vec_theta_it = list()
+drv_mat_a_tt_drv_vec_theta_tt = list()
 
 # read positive/negative instances
-ReadFile.readUITFile(strUITGraphPath, matX_UI, matX_UT, matX_IT)
+ReadFile.read_uit_file(str_uit_graph_path, tensor_x_ui, tensor_x_ut, tensor_x_it)
 
-for i in matX_UI:
-    matX_IU.append(i.transpose())
+for i in tensor_x_ui:
+    tensor_x_iu.append(i.transpose())
 
-for i in matX_UT:
-    matX_TU.append(i.transpose())
+for i in tensor_x_ut:
+    tensor_x_tu.append(i.transpose())
 
-for i in matX_IT:
-    matX_TI.append(i.transpose())
+for i in tensor_x_it:
+    tensor_x_ti.append(i.transpose())
 
-print(shape(matX_UI[0]))
-print(shape(matX_UT[0]))
-print(shape(matX_IT[0]))
+print(shape(tensor_x_ui[0]))
+print(shape(tensor_x_ut[0]))
+print(shape(tensor_x_it[0]))
 
-valUserNum = shape(matX_UI[0])[0]
-valItemNum = shape(matX_UI[0])[1]
-valTagNum = shape(matX_UT[0])[1]
+val_user_num = shape(tensor_x_ui[0])[0]
+val_item_num = shape(tensor_x_ui[0])[1]
+val_tag_num = shape(tensor_x_ut[0])[1]
 #
 # query vector definition
 #     [ U ]
@@ -156,13 +139,13 @@ valTagNum = shape(matX_UT[0])[1]
 
 '''
 # read UU graph
-ReadFile.readXXFile(strUUGraphPath, matX_UU)
+ReadFile.readXXFile(str_uu_graph_path, tensor_x_uu)
 
 # read II graph
-ReadFile.readXXFile(strIIGraphPath, matX_II)
+ReadFile.readXXFile(str_ii_graph_path, tensor_x_ii)
 
 # read TT graph
-ReadFile.readXXFile(strTTGraphPath, matX_TT)
+ReadFile.readXXFile(str_tt_graph_path, tensor_x_tt)
 '''
 
 #
@@ -170,183 +153,198 @@ ReadFile.readXXFile(strTTGraphPath, matX_TT)
 #
 #  user \t item \t posIns1,posIns2,... \t negIns1,negIns2,...
 #
-f_TrainInstances = open(strTrainInstancePath, 'r')
-for line in f_TrainInstances:
-    listTrainingInstance.append(line)
+with open(str_train_instance_path, 'r', encoding='utf8') as file_train_instances:
+    for line in file_train_instances:
+        list_training_instance.append(line)
 
 #
 # create matA
 #
 
-if len(matX_UU) != 0:
-    matA_UU = LA.linear_combination(valUserNum, valUserNum, matX_UU, vecTheta_UU)
-    matA_UU.data[:] = 2 / (1 + exp(-1 * matA_UU.data)) - 1
+if len(tensor_x_uu) != 0:
+    mat_a_uu = LA.linear_combination(val_user_num, val_user_num, tensor_x_uu, vec_theta_uu)
+    mat_a_uu.data[:] = 2 / (1 + exp(-1 * mat_a_uu.data)) - 1
 else:
-    matA_UU = csr_matrix((valUserNum, valUserNum), dtype=float)
+    mat_a_uu = csr_matrix((val_user_num, val_user_num), dtype=float)
 
-if len(matX_UI) != 0:
-    matA_UI = LA.linear_combination(valUserNum, valItemNum, matX_UI, vecTheta_UI)
-    matA_UI.data[:] = 2 / (1 + exp(-1 * matA_UI.data)) - 1
+if len(tensor_x_ui) != 0:
+    mat_a_ui = LA.linear_combination(val_user_num, val_item_num, tensor_x_ui, vec_theta_ui)
+    mat_a_ui.data[:] = 2 / (1 + exp(-1 * mat_a_ui.data)) - 1
 else:
-    matA_UI = csr_matrix((valUserNum, valItemNum), dtype=float)
+    mat_a_ui = csr_matrix((val_user_num, val_item_num), dtype=float)
 
-if len(matX_UT) != 0:
-    matA_UT = LA.linear_combination(valUserNum, valTagNum, matX_UT, vecTheta_UT)
-    matA_UT.data[:] = 2 / (1 + exp(-1 * matA_UT.data)) - 1
+if len(tensor_x_ut) != 0:
+    mat_a_ut = LA.linear_combination(val_user_num, val_tag_num, tensor_x_ut, vec_theta_ut)
+    mat_a_ut.data[:] = 2 / (1 + exp(-1 * mat_a_ut.data)) - 1
 else:
-    matA_UT = csr_matrix((valUserNum, valTagNum), dtype=float)
+    mat_a_ut = csr_matrix((val_user_num, val_tag_num), dtype=float)
 
-if len(matX_UI) != 0:
-    matA_IU = LA.linear_combination(valItemNum, valUserNum, matX_IU, vecTheta_IU)
-    matA_IU.data[:] = 2 / (1 + exp(-1 * matA_IU.data)) - 1
+if len(tensor_x_ui) != 0:
+    mat_a_iu = LA.linear_combination(val_item_num, val_user_num, tensor_x_iu, vec_theta_iu)
+    mat_a_iu.data[:] = 2 / (1 + exp(-1 * mat_a_iu.data)) - 1
 else:
-    matA_IU = csr_matrix((valItemNum, valUserNum), dtype=float)
+    mat_a_iu = csr_matrix((val_item_num, val_user_num), dtype=float)
 
-if len(matX_II) != 0:
-    matA_II = LA.linear_combination(valItemNum, valItemNum, matX_II, vecTheta_II)
-    matA_II.data[:] = 2 / (1 + exp(-1 * matA_II.data)) - 1
+if len(tensor_x_ii) != 0:
+    mat_a_ii = LA.linear_combination(val_item_num, val_item_num, tensor_x_ii, vec_theta_ii)
+    mat_a_ii.data[:] = 2 / (1 + exp(-1 * mat_a_ii.data)) - 1
 else:
-    matA_II = csr_matrix((valItemNum, valItemNum), dtype=float)
+    mat_a_ii = csr_matrix((val_item_num, val_item_num), dtype=float)
 
-if len(matX_IT) != 0:
-    matA_IT = LA.linear_combination(valItemNum, valTagNum, matX_IT, vecTheta_IT)
-    matA_IT.data[:] = 2 / (1 + exp(-1 * matA_IT.data)) - 1
+if len(tensor_x_it) != 0:
+    mat_a_it = LA.linear_combination(val_item_num, val_tag_num, tensor_x_it, vec_theta_it)
+    mat_a_it.data[:] = 2 / (1 + exp(-1 * mat_a_it.data)) - 1
 else:
-    matA_IT = csr_matrix((valItemNum, valTagNum), dtype=float)
+    mat_a_it = csr_matrix((val_item_num, val_tag_num), dtype=float)
 
-if len(matX_UT) != 0:
-    matA_TU = LA.linear_combination(valTagNum, valUserNum, matX_TU, vecTheta_TU)
-    matA_TU.data[:] = 2 / (1 + exp(-1 * matA_TU.data)) - 1
+if len(tensor_x_ut) != 0:
+    mat_a_tu = LA.linear_combination(val_tag_num, val_user_num, tensor_x_tu, vec_theta_tu)
+    mat_a_tu.data[:] = 2 / (1 + exp(-1 * mat_a_tu.data)) - 1
 else:
-    matA_TU = csr_matrix((valTagNum, valUserNum), dtype=float)
+    mat_a_tu = csr_matrix((val_tag_num, val_user_num), dtype=float)
 
-if len(matX_TI) != 0:
-    matA_TI = LA.linear_combination(valTagNum, valItemNum, matX_TI, vecTheta_TI)
-    matA_TI.data[:] = 2 / (1 + exp(-1 * matA_TI.data)) - 1
+if len(tensor_x_ti) != 0:
+    mat_a_ti = LA.linear_combination(val_tag_num, val_item_num, tensor_x_ti, vec_theta_ti)
+    mat_a_ti.data[:] = 2 / (1 + exp(-1 * mat_a_ti.data)) - 1
 else:
-    matA_TI = csr_matrix((valTagNum, valItemNum), dtype=float)
+    mat_a_ti = csr_matrix((val_tag_num, val_item_num), dtype=float)
 
-if len(matX_TT) != 0:
-    matA_TT = LA.linear_combination(valTagNum, valTagNum, matX_TT, vecTheta_TT)
-    matA_TT.data[:] = 2 / (1 + exp(-1 * matA_TT.data)) - 1
+if len(tensor_x_tt) != 0:
+    mat_a_tt = LA.linear_combination(val_tag_num, val_tag_num, tensor_x_tt, vec_theta_tt)
+    mat_a_tt.data[:] = 2 / (1 + exp(-1 * mat_a_tt.data)) - 1
 else:
-    matA_TT = csr_matrix((valTagNum, valTagNum), dtype=float)
+    mat_a_tt = csr_matrix((val_tag_num, val_tag_num), dtype=float)
 
-print('matA_UU : ' + str(shape(matA_UU)))
-print('matA_UI : ' + str(shape(matA_UI)))
-print('matA_UT : ' + str(shape(matA_UT)))
-print('matA_IU : ' + str(shape(matA_IU)))
-print('matA_II : ' + str(shape(matA_II)))
-print('matA_IT : ' + str(shape(matA_IT)))
-print('matA_TU : ' + str(shape(matA_TU)))
-print('matA_TI : ' + str(shape(matA_TI)))
-print('matA_TT : ' + str(shape(matA_TT)))
+print('mat_a_uu : ' + str(shape(mat_a_uu)))
+print('mat_a_ui : ' + str(shape(mat_a_ui)))
+print('mat_a_ut : ' + str(shape(mat_a_ut)))
+print('mat_a_iu : ' + str(shape(mat_a_iu)))
+print('mat_a_ii : ' + str(shape(mat_a_ii)))
+print('mat_a_it : ' + str(shape(mat_a_it)))
+print('mat_a_tu : ' + str(shape(mat_a_tu)))
+print('mat_a_ti : ' + str(shape(mat_a_ti)))
+print('mat_a_tt : ' + str(shape(mat_a_tt)))
 
 #
-# D_U^{-1}
+# D_U^{-1} => Eq.(8)
 #
-colSum_U = csr_matrix(np.ones((1, valUserNum)) * matA_UU + np.ones((1, valItemNum)) * matA_IU + np.ones((1, valTagNum)) * matA_TU)
-colSum_I = csr_matrix(np.ones((1, valUserNum)) * matA_UI + np.ones((1, valItemNum)) * matA_II + np.ones((1, valTagNum)) * matA_TI)
-colSum_T = csr_matrix(np.ones((1, valUserNum)) * matA_UT + np.ones((1, valItemNum)) * matA_IT + np.ones((1, valTagNum)) * matA_TT)
+vec_sum_col_u = csr_matrix(np.ones((1, val_user_num)) * mat_a_uu +
+                           np.ones((1, val_item_num)) * mat_a_iu +
+                           np.ones((1, val_tag_num)) * mat_a_tu)
 
-colSumInv_U = csr_matrix(np.ones((1, valUserNum)) * matA_UU + np.ones((1, valItemNum)) * matA_IU + np.ones((1, valTagNum)) * matA_TU)
-colSumInv_I = csr_matrix(np.ones((1, valUserNum)) * matA_UI + np.ones((1, valItemNum)) * matA_II + np.ones((1, valTagNum)) * matA_TI)
-colSumInv_T = csr_matrix(np.ones((1, valUserNum)) * matA_UT + np.ones((1, valItemNum)) * matA_IT + np.ones((1, valTagNum)) * matA_TT)
+vec_sum_col_i = csr_matrix(np.ones((1, val_user_num)) * mat_a_ui +
+                           np.ones((1, val_item_num)) * mat_a_ii +
+                           np.ones((1, val_tag_num)) * mat_a_ti)
 
-colSumInv_U.data[:] = power(colSumInv_U.data, -1)
-inv_D_U = dia_matrix((colSumInv_U.toarray(), array([0])), shape=(valUserNum, valUserNum))
+vec_sum_col_t = csr_matrix(np.ones((1, val_user_num)) * mat_a_ut +
+                           np.ones((1, val_item_num)) * mat_a_it +
+                           np.ones((1, val_tag_num)) * mat_a_tt)
 
-colSumInv_I.data[:] = power(colSumInv_I.data, -1)
-inv_D_I = dia_matrix((colSumInv_I.toarray(), array([0])), shape=(valItemNum, valItemNum))
+vec_inv_sum_col_t = vec_sum_col_u
+vec_inv_sum_col_i = vec_sum_col_i
+vec_inv_sum_col_t = vec_sum_col_t
 
-colSumInv_T.data[:] = power(colSumInv_T.data, -1)
-inv_D_T = dia_matrix((colSumInv_T.toarray(), array([0])), shape=(valTagNum, valTagNum))
+vec_inv_sum_col_t.data[:] = power(vec_inv_sum_col_t.data, -1)
+inv_mat_d_u = dia_matrix((vec_inv_sum_col_t.toarray(), array([0])), shape=(val_user_num, val_user_num))
 
-colSum_U = colSum_U.todense()
-colSum_I = colSum_I.todense()
-colSum_T = colSum_T.todense()
+vec_inv_sum_col_i.data[:] = power(vec_inv_sum_col_i.data, -1)
+inv_mat_d_i = dia_matrix((vec_inv_sum_col_i.toarray(), array([0])), shape=(val_item_num, val_item_num))
 
-colSumInv_U = colSumInv_U.todense()
-colSumInv_I = colSumInv_I.todense()
-colSumInv_T = colSumInv_T.todense()
+vec_inv_sum_col_t.data[:] = power(vec_inv_sum_col_t.data, -1)
+inv_mat_d_t = dia_matrix((vec_inv_sum_col_t.toarray(), array([0])), shape=(val_tag_num, val_tag_num))
 
-print('valUserNum : ' + str(valUserNum))
-print('valItemNum : ' + str(valItemNum))
-print('valTagNum : ' + str(valTagNum))
+vec_sum_col_u = vec_sum_col_u.todense()
+vec_sum_col_i = vec_sum_col_i.todense()
+vec_sum_col_t = vec_sum_col_t.todense()
 
-print('inv_D_U : ' + str(shape(inv_D_U)))
-print('inv_D_I : ' + str(shape(inv_D_I)))
-print('inv_D_T : ' + str(shape(inv_D_T)))
+vec_inv_sum_col_t = vec_inv_sum_col_t.todense()
+vec_inv_sum_col_i = vec_inv_sum_col_i.todense()
+vec_inv_sum_col_t = vec_inv_sum_col_t.todense()
+
+print('val_user_num : ' + str(val_user_num))
+print('val_item_num : ' + str(val_item_num))
+print('val_tag_num : ' + str(val_tag_num))
+
+print('inv_mat_d_u : ' + str(shape(inv_mat_d_u)))
+print('inv_mat_d_i : ' + str(shape(inv_mat_d_i)))
+print('inv_mat_d_t : ' + str(shape(inv_mat_d_t)))
 
 #
 # column normalization on transition probabilities matrices
 #
-matA_UU_CN = matA_UU * inv_D_U
-matA_UI_CN = matA_UI * inv_D_I
-matA_UT_CN = matA_UT * inv_D_T
-matA_IU_CN = matA_IU * inv_D_U
-matA_II_CN = matA_II * inv_D_I
-matA_IT_CN = matA_IT * inv_D_T
-matA_TU_CN = matA_TU * inv_D_U
-matA_TI_CN = matA_TI * inv_D_I
-matA_TT_CN = matA_TT * inv_D_T
+mat_a_uu_col_norm = mat_a_uu * inv_mat_d_u
+mat_a_ui_col_norm = mat_a_ui * inv_mat_d_i
+mat_a_ut_col_norm = mat_a_ut * inv_mat_d_t
+mat_a_iu_col_norm = mat_a_iu * inv_mat_d_u
+mat_a_ii_col_norm = mat_a_ii * inv_mat_d_i
+mat_a_it_col_norm = mat_a_it * inv_mat_d_t
+mat_a_tu_col_norm = mat_a_tu * inv_mat_d_u
+mat_a_ti_col_norm = mat_a_ti * inv_mat_d_i
+mat_a_tt_col_norm = mat_a_tt * inv_mat_d_t
 
 # Theta_UU
-LA.gradient_mn(gradientA_UU_UU, gradientA_IU_UU, gradientA_TU_UU,
-               matA_UU, matA_IU, matA_TU, valUserNum, valItemNum, valTagNum, vecTheta_UU, inv_D_U, colSum_U, matX_UU, 1)
+LA.gradient_mn(drv_mat_a_uu_drv_vec_theta_uu, drv_mat_a_iu_drv_vec_theta_uu, drv_mat_a_tu_drv_vec_theta_uu,
+               mat_a_uu, mat_a_iu, mat_a_tu, val_user_num, val_item_num, val_tag_num,
+               vec_theta_uu, inv_mat_d_u, vec_sum_col_u, tensor_x_uu, 1)
 
 # Theta_UI
-LA.gradient_mn(gradientA_UI_UI, gradientA_II_UI, gradientA_TI_UI,
-               matA_UI, matA_II, matA_TI, valUserNum, valItemNum, valTagNum, vecTheta_UI, inv_D_I, colSum_I, matX_UI, 1)
+LA.gradient_mn(drv_mat_a_ui_drv_vec_theta_ui, drv_mat_a_ii_drv_vec_theta_ui, drv_mat_a_ti_drv_vec_theta_ui,
+               mat_a_ui, mat_a_ii, mat_a_ti, val_user_num, val_item_num, val_tag_num,
+               vec_theta_ui, inv_mat_d_i, vec_sum_col_i, tensor_x_ui, 1)
 
 # Theta_UT
-LA.gradient_mn(gradientA_UT_UT, gradientA_IT_UT, gradientA_TT_UT,
-               matA_UT, matA_IT, matA_TT, valUserNum, valItemNum, valTagNum, vecTheta_UT, inv_D_T, colSum_T, matX_UT, 1)
+LA.gradient_mn(drv_mat_a_ut_drv_vec_theta_ut, drv_mat_a_it_drv_vec_theta_ut, drv_mat_a_tt_drv_vec_theta_ut,
+               mat_a_ut, mat_a_it, mat_a_tt, val_user_num, val_item_num, val_tag_num,
+               vec_theta_ut, inv_mat_d_t, vec_sum_col_t, tensor_x_ut, 1)
 
 # Theta_IU
-LA.gradient_mn(gradientA_UU_IU, gradientA_IU_IU, gradientA_TU_IU,
-               matA_UU, matA_IU, matA_TU, valUserNum, valItemNum, valTagNum, vecTheta_IU, inv_D_U, colSum_U, matX_UI, 2)
+LA.gradient_mn(drv_mat_a_uu_drv_vec_theta_iu, drv_mat_a_iu_drv_vec_theta_iu, drv_mat_a_tu_drv_vec_theta_iu,
+               mat_a_uu, mat_a_iu, mat_a_tu, val_user_num, val_item_num, val_tag_num,
+               vec_theta_iu, inv_mat_d_u, vec_sum_col_u, tensor_x_ui, 2)
 
 # Theta_II
-LA.gradient_mn(gradientA_UI_II, gradientA_II_II, gradientA_TI_II,
-               matA_UI, matA_II, matA_TI, valUserNum, valItemNum, valTagNum, vecTheta_II, inv_D_I, colSum_I, matX_II, 2)
+LA.gradient_mn(drv_mat_a_ui_drv_vec_theta_ii, drv_mat_a_ii_drv_vec_theta_ii, drv_mat_a_ti_drv_vec_theta_ii,
+               mat_a_ui, mat_a_ii, mat_a_ti, val_user_num, val_item_num, val_tag_num,
+               vec_theta_ii, inv_mat_d_i, vec_sum_col_i, tensor_x_ii, 2)
 
 # Theta_IT
-LA.gradient_mn(gradientA_UT_IT, gradientA_IT_IT, gradientA_TT_IT,
-               matA_UT, matA_IT, matA_TT, valUserNum, valItemNum, valTagNum, vecTheta_IT, inv_D_T, colSum_T, matX_IT, 2)
+LA.gradient_mn(drv_mat_a_ut_drv_vec_theta_it, drv_mat_a_it_drv_vec_theta_it, drv_mat_a_tt_drv_vec_theta_it,
+               mat_a_ut, mat_a_it, mat_a_tt, val_user_num, val_item_num, val_tag_num,
+               vec_theta_it, inv_mat_d_t, vec_sum_col_t, tensor_x_it, 2)
 
 # Theta_TU
-LA.gradient_mn(gradientA_UU_TU, gradientA_IU_TU, gradientA_TU_TU,
-               matA_UU, matA_IU, matA_TU, valUserNum, valItemNum, valTagNum, vecTheta_TU, inv_D_U, colSum_U, matX_UT, 3)
+LA.gradient_mn(drv_mat_a_uu_drv_vec_theta_tu, drv_mat_a_iu_drv_vec_theta_tu, drv_mat_a_tu_drv_vec_theta_tu,
+               mat_a_uu, mat_a_iu, mat_a_tu, val_user_num, val_item_num, val_tag_num,
+               vec_theta_tu, inv_mat_d_u, vec_sum_col_u, tensor_x_ut, 3)
 
 # Theta_TI
-LA.gradient_mn(gradientA_UI_TI, gradientA_II_TI, gradientA_TI_TI,
-               matA_UI, matA_II, matA_TI, valUserNum, valItemNum, valTagNum, vecTheta_TI, inv_D_I, colSum_I, matX_IT, 3)
+LA.gradient_mn(drv_mat_a_ui_drv_vec_theta_ti, drv_mat_a_ii_drv_vec_theta_ti, drv_mat_a_ti_drv_vec_theta_ti,
+               mat_a_ui, mat_a_ii, mat_a_ti, val_user_num, val_item_num, val_tag_num,
+               vec_theta_ti, inv_mat_d_i, vec_sum_col_i, tensor_x_it, 3)
 
 # Theta_TT
-LA.gradient_mn(gradientA_UT_TT, gradientA_IT_TT, gradientA_TT_TT,
-               matA_UT, matA_IT, matA_TT, valUserNum, valItemNum, valTagNum, vecTheta_TT, inv_D_T, colSum_T, matX_TT, 3)
+LA.gradient_mn(drv_mat_a_ut_drv_vec_theta_tt, drv_mat_a_it_drv_vec_theta_tt, drv_mat_a_tt_drv_vec_theta_tt,
+               mat_a_ut, mat_a_it, mat_a_tt, val_user_num, val_item_num, val_tag_num,
+               vec_theta_tt, inv_mat_d_t, vec_sum_col_t, tensor_x_tt, 3)
 
 
 #
-# the derivatives of the parameter: Xi
+# the derivatives of the parameter: Xi in Eq.(30)-(32)
 #
-gradientP_U_U = csr_matrix((valUserNum, valXiNum_U), dtype=float)
-gradientP_U_I = csr_matrix((valUserNum, valXiNum_I), dtype=float)
-gradientP_I_U = csr_matrix((valItemNum, valXiNum_U), dtype=float)
-gradientP_I_I = csr_matrix((valItemNum, valXiNum_I), dtype=float)
+drv_vec_p_u_drv_vec_xi_u = csr_matrix((val_user_num, val_sizeof_xi_u), dtype=float)
+drv_vec_p_u_drv_vec_xi_i = csr_matrix((val_user_num, val_sizeof_xi_i), dtype=float)
+drv_vec_p_i_drv_vec_xi_u = csr_matrix((val_item_num, val_sizeof_xi_u), dtype=float)
+drv_vec_p_i_drv_vec_xi_i = csr_matrix((val_item_num, val_sizeof_xi_i), dtype=float)
 
 isConverge = False
 line_count = 0
 
-for line in listTrainingInstance:
+for line in list_training_instance:
 
     line_count += 1
 
     if line_count < 0:
         continue
-
-    #line = listTrainingInstance[0]
 
     if isConverge:
         break
@@ -360,10 +358,10 @@ for line in listTrainingInstance:
 
     user = int(l[0])
     item = int(l[1])
-    Ptags = list(map(int, l[2].split(',')))
-    Ntags = list(map(int, l[3].split(',')))
-    lengthPT = len(Ptags)
-    lengthNT = len(Ntags)
+    list_positive_tags = list(map(int, l[2].split(',')))
+    list_negative_tags = list(map(int, l[3].split(',')))
+    val_sizeof_positive_tags = len(list_positive_tags)
+    val_sizeof_negative_tags = len(list_negative_tags)
 
     #
     # probability distribution vector definition
@@ -373,470 +371,532 @@ for line in listTrainingInstance:
     #
 
     # Y
-    vecYU = np.zeros((valUserNum, 1))
-    vecYI = np.zeros((valItemNum, 1))
+    vec_y_u = np.zeros((val_user_num, 1))
+    vec_y_i = np.zeros((val_item_num, 1))
 
     # preference vector
-    vecPU = np.zeros((valUserNum, 1))
-    vecPI = np.zeros((valItemNum, 1))
-    vecPT = np.zeros((valTagNum, 1))
+    vec_p_u = np.zeros((val_user_num, 1))
+    vec_p_i = np.zeros((val_item_num, 1))
+    vec_p_t = np.zeros((val_tag_num, 1))
 
     # query vector
-    vecQU = np.zeros((valUserNum, 1))
-    vecQI = np.zeros((valItemNum, 1))
-    vecQT = np.zeros((valTagNum, 1))
+    vec_q_u = np.zeros((val_user_num, 1))
+    vec_q_i = np.zeros((val_item_num, 1))
+    vec_q_t = np.zeros((val_tag_num, 1))
 
-    if lengthPT == 0 or lengthNT == 0:
+    if val_sizeof_positive_tags == 0 or val_sizeof_negative_tags == 0:
         continue
 
     print('\n' + str(line_count) + '\nuser: ' + str(user) + ', item: ' + str(item))
 
-    vecYU[user, 0] = 1
-    vecYI[item, 0] = 1
+    vec_y_u[user, 0] = 1
+    vec_y_i[item, 0] = 1
 
+    # query vector
+    vec_q_u = vec_y_u * vec_xi_u
+    vec_q_i = vec_y_i * vec_xi_u
+    vec_q_u = 2. / (1. + np.exp(-1 * vec_q_u)) - ones(shape(vec_q_u))
+    vec_q_i = 2. / (1. + np.exp(-1 * vec_q_i)) - ones(shape(vec_q_i))
+    vec_q_t = 2. / (1. + np.exp(-1 * vec_q_t)) - ones(shape(vec_q_t))
 
-    vecQU = vecYU * vecXi_U
-    vecQI = vecYI * vecXi_U
+    # preference vector
+    vec_p_u = vec_y_u * vec_xi_u
+    vec_p_i = vec_y_i * vec_xi_u    
+    vec_p_u = 2. / (1. + np.exp(-1 * vec_p_u)) - ones(shape(vec_q_u))
+    vec_p_i = 2. / (1. + np.exp(-1 * vec_p_i)) - ones(shape(vec_q_i))
+    vec_p_t = 2. / (1. + np.exp(-1 * vec_p_t)) - ones(shape(vec_q_t))
 
-    vecPU = vecYU * vecXi_U
-    vecPI = vecYI * vecXi_U
+    val_sum_col_vec_p = np.sum(vec_p_u) + np.sum(vec_p_i) + np.sum(vec_p_t)
 
-    vecQU = 2. / (1. + np.exp(-1 * vecQU)) - ones(shape(vecQU))
-    vecQI = 2. / (1. + np.exp(-1 * vecQI)) - ones(shape(vecQI))
-    vecQT = 2. / (1. + np.exp(-1 * vecQT)) - ones(shape(vecQT))
+    vec_q_u /= val_sum_col_vec_p
+    vec_q_i /= val_sum_col_vec_p
+    vec_q_t /= val_sum_col_vec_p
 
-    vecPU = 2. / (1. + np.exp(-1 * vecPU)) - ones(shape(vecQU))
-    vecPI = 2. / (1. + np.exp(-1 * vecPI)) - ones(shape(vecQI))
-    vecPT = 2. / (1. + np.exp(-1 * vecPT)) - ones(shape(vecQT))
+    vec_p_u /= val_sum_col_vec_p
+    vec_p_i /= val_sum_col_vec_p
+    vec_p_t /= val_sum_col_vec_p
 
-    colSumP = np.sum(vecPU) + np.sum(vecPI) + np.sum(vecPT)
-
-    vecQU /= colSumP
-    vecQI /= colSumP
-    vecQT /= colSumP
-
-    vecPU /= colSumP
-    vecPI /= colSumP
-    vecPT /= colSumP
-
-    vecPU = csr_matrix(vecPU, shape=(valUserNum, 1))
-    vecPI = csr_matrix(vecPI, shape=(valItemNum, 1))
-    vecPT = csr_matrix(vecPT, shape=(valTagNum, 1))
+    vec_p_u = csr_matrix(vec_p_u, shape=(val_user_num, 1))
+    vec_p_i = csr_matrix(vec_p_i, shape=(val_item_num, 1))
+    vec_p_t = csr_matrix(vec_p_t, shape=(val_tag_num, 1))
 
     #
-    # calculate the distribution by random walk with restart
+    # Calculate the distribution by random walk with restart
     #
-    for itr in range(iterNum):
-        vecQU = (1 - valAlpha) * (
-            matA_UU_CN * vecQU + matA_UI_CN * vecQI + matA_UT_CN * vecQT) + valAlpha * vecPU
-        vecQI = (1 - valAlpha) * (
-            matA_IU_CN * vecQU + matA_II_CN * vecQI + matA_IT_CN * vecQT) + valAlpha * vecPI
-        vecQT = (1 - valAlpha) * (
-            matA_TU_CN * vecQU + matA_TI_CN * vecQI + matA_TT_CN * vecQT) + valAlpha * vecPT
+    for itr in range(iter_num):
+        tmp = mat_a_uu_col_norm * vec_q_u + mat_a_ui_col_norm * vec_q_i + mat_a_ut_col_norm * vec_q_t
+        vec_q_u = (1 - val_alpha) * tmp + val_alpha * vec_p_u
+        
+        tmp = mat_a_iu_col_norm * vec_q_u + mat_a_ii_col_norm * vec_q_i + mat_a_it_col_norm * vec_q_t
+        vec_q_i = (1 - val_alpha) * tmp + val_alpha * vec_p_i
+        
+        tmp = mat_a_tu_col_norm * vec_q_u + mat_a_ti_col_norm * vec_q_i + mat_a_tt_col_norm * vec_q_t
+        vec_q_t = (1 - val_alpha) * tmp + val_alpha * vec_p_t
 
-
-    listQQQT = np.argsort(np.asarray(vecQT.transpose()), kind='heapsort')[0][::-1][0:10]
+    listQQQT = np.argsort(np.asarray(vec_q_t.transpose()), kind='heapsort')[0][::-1][0:10]
 
     count = 0
 
-    setResults = set(listQQQT)
-    setGroundTruth = set(Ptags)
-    setRetrive = setGroundTruth & setResults
+    set_results = set(listQQQT)
+    set_ground_truth = set(list_positive_tags)
+    set_retrive = set_ground_truth & set_results
 
-    print('Precision@20 = ' + str(len(setRetrive) / 20))
+    print('Precision@20 = ' + str(len(set_retrive) / 20))
 
-    for i in range(valXiNum_U):
-        t = (np.ones(shape(vecPU)) - vecPU)
-        d = np.multiply(vecPU.todense(), t)
-        dP_U_U = np.multiply(d, vecYU)
-        inv_dD_U = -1 * sum(dP_U_U) / (colSumP ** 2)
-        gradientP_U_U[:, i] = dP_U_U / colSumP + vecPU * inv_dD_U
+    for i in range(val_sizeof_xi_u):
+        t = (np.ones(shape(vec_p_u)) - vec_p_u)
+        d = np.multiply(vec_p_u.todense(), t)
+        dP_U_U = np.multiply(d, vec_y_u)
+        inv_dD_U = -1 * sum(dP_U_U) / (val_sum_col_vec_p ** 2)
+        drv_vec_p_u_drv_vec_xi_u[:, i] = dP_U_U / val_sum_col_vec_p + vec_p_u * inv_dD_U
 
-        gradientP_I_U[:, i] = vecQI * inv_dD_U
+        drv_vec_p_i_drv_vec_xi_u[:, i] = vec_q_i * inv_dD_U
 
-    for i in range(valXiNum_I):
-        t = (np.ones(shape(vecPI)) - vecPI)
-        d = np.multiply(vecPI.todense(), t)
-        dP_I_I = np.multiply(d, vecYI)
-        inv_dD_I = -1 * sum(dP_I_I) / (colSumP ** 2)
-        gradientP_I_I[:, i] = dP_I_I / colSumP + vecPI * inv_dD_I
+    for i in range(val_sizeof_xi_i):
+        t = (np.ones(shape(vec_p_i)) - vec_p_i)
+        d = np.multiply(vec_p_i.todense(), t)
+        dP_I_I = np.multiply(d, vec_y_i)
+        inv_dD_I = -1 * sum(dP_I_I) / (val_sum_col_vec_p ** 2)
+        drv_vec_p_i_drv_vec_xi_i[:, i] = dP_I_I / val_sum_col_vec_p + vec_p_i * inv_dD_I
 
-        gradientP_U_I[:, i] = vecQU * inv_dD_I
-
-    #
-    # the gradients by Theta
-    #
-    vecPU_UU = np.ones((valUserNum, valFeatureNum_UU)) / valUserNum
-    vecPU_UI = np.ones((valUserNum, valFeatureNum_UI)) / valUserNum
-    vecPU_UT = np.ones((valUserNum, valFeatureNum_UT)) / valUserNum
-    vecPU_IU = np.ones((valUserNum, valFeatureNum_UI)) / valUserNum
-    vecPU_II = np.ones((valUserNum, valFeatureNum_II)) / valUserNum
-    vecPU_IT = np.ones((valUserNum, valFeatureNum_IT)) / valUserNum
-    vecPU_TU = np.ones((valUserNum, valFeatureNum_UT)) / valUserNum
-    vecPU_TI = np.ones((valUserNum, valFeatureNum_IT)) / valUserNum
-    vecPU_TT = np.ones((valUserNum, valFeatureNum_TT)) / valUserNum
-
-    vecPI_UU = np.ones((valItemNum, valFeatureNum_UU)) / valItemNum
-    vecPI_UI = np.ones((valItemNum, valFeatureNum_UI)) / valItemNum
-    vecPI_UT = np.ones((valItemNum, valFeatureNum_UT)) / valItemNum
-    vecPI_IU = np.ones((valItemNum, valFeatureNum_UI)) / valItemNum
-    vecPI_II = np.ones((valItemNum, valFeatureNum_II)) / valItemNum
-    vecPI_IT = np.ones((valItemNum, valFeatureNum_IT)) / valItemNum
-    vecPI_TU = np.ones((valItemNum, valFeatureNum_UT)) / valItemNum
-    vecPI_TI = np.ones((valItemNum, valFeatureNum_IT)) / valItemNum
-    vecPI_TT = np.ones((valItemNum, valFeatureNum_TT)) / valItemNum
-
-    vecPT_UU = np.ones((valTagNum, valFeatureNum_UU)) / valItemNum
-    vecPT_UI = np.ones((valTagNum, valFeatureNum_UI)) / valItemNum
-    vecPT_UT = np.ones((valTagNum, valFeatureNum_UT)) / valItemNum
-    vecPT_IU = np.ones((valTagNum, valFeatureNum_UI)) / valItemNum
-    vecPT_II = np.ones((valTagNum, valFeatureNum_II)) / valItemNum
-    vecPT_IT = np.ones((valTagNum, valFeatureNum_IT)) / valItemNum
-    vecPT_TU = np.ones((valTagNum, valFeatureNum_UT)) / valItemNum
-    vecPT_TI = np.ones((valTagNum, valFeatureNum_IT)) / valItemNum
-    vecPT_TT = np.ones((valTagNum, valFeatureNum_TT)) / valItemNum
+        drv_vec_p_u_drv_vec_xi_i[:, i] = vec_q_u * inv_dD_I
 
     #
-    # the gradients by Xi
+    # the gradients of vector p by vector Theta => Eq.(23)-(25)
     #
-    vecPU_Xi_U = csr_matrix(np.ones((valUserNum, valXiNum_U)) / valUserNum, shape=(valUserNum, valXiNum_U))
-    vecPU_Xi_I = csr_matrix(np.ones((valUserNum, valXiNum_I)) / valUserNum, shape=(valUserNum, valXiNum_I))
-    vecPI_Xi_U = csr_matrix(np.ones((valItemNum, valXiNum_U)) / valItemNum, shape=(valItemNum, valXiNum_U))
-    vecPI_Xi_I = csr_matrix(np.ones((valItemNum, valXiNum_I)) / valItemNum, shape=(valItemNum, valXiNum_I))
-    vecPT_Xi_U = csr_matrix(np.ones((valTagNum, valXiNum_U)) / valTagNum, shape=(valTagNum, valXiNum_U))
-    vecPT_Xi_I = csr_matrix(np.ones((valTagNum, valXiNum_I)) / valTagNum, shape=(valTagNum, valXiNum_I))
+    mat_drv_vec_p_u_drv_vec_theta_uu = np.ones((val_user_num, val_feature_num_uu)) / val_user_num
+    mat_drv_vec_p_u_drv_vec_theta_ui = np.ones((val_user_num, val_feature_num_ui)) / val_user_num
+    mat_drv_vec_p_u_drv_vec_theta_ut = np.ones((val_user_num, val_feature_num_ut)) / val_user_num
+    mat_drv_vec_p_u_drv_vec_theta_iu = np.ones((val_user_num, val_feature_num_ui)) / val_user_num
+    mat_drv_vec_p_u_drv_vec_theta_ii = np.ones((val_user_num, val_feature_num_ii)) / val_user_num
+    mat_drv_vec_p_u_drv_vec_theta_it = np.ones((val_user_num, val_feature_num_it)) / val_user_num
+    mat_drv_vec_p_u_drv_vec_theta_tu = np.ones((val_user_num, val_feature_num_ut)) / val_user_num
+    mat_drv_vec_p_u_drv_vec_theta_ti = np.ones((val_user_num, val_feature_num_it)) / val_user_num
+    mat_drv_vec_p_u_drv_vec_theta_tt = np.ones((val_user_num, val_feature_num_tt)) / val_user_num
+
+    mat_drv_vec_p_i_drv_vec_theta_uu = np.ones((val_item_num, val_feature_num_uu)) / val_item_num
+    mat_drv_vec_p_i_drv_vec_theta_ui = np.ones((val_item_num, val_feature_num_ui)) / val_item_num
+    mat_drv_vec_p_i_drv_vec_theta_ut = np.ones((val_item_num, val_feature_num_ut)) / val_item_num
+    mat_drv_vec_p_i_drv_vec_theta_iu = np.ones((val_item_num, val_feature_num_ui)) / val_item_num
+    mat_drv_vec_p_i_drv_vec_theta_ii = np.ones((val_item_num, val_feature_num_ii)) / val_item_num
+    mat_drv_vec_p_i_drv_vec_theta_it = np.ones((val_item_num, val_feature_num_it)) / val_item_num
+    mat_drv_vec_p_i_drv_vec_theta_tu = np.ones((val_item_num, val_feature_num_ut)) / val_item_num
+    mat_drv_vec_p_i_drv_vec_theta_ti = np.ones((val_item_num, val_feature_num_it)) / val_item_num
+    mat_drv_vec_p_i_drv_vec_theta_tt = np.ones((val_item_num, val_feature_num_tt)) / val_item_num
+
+    mat_drv_vec_p_t_drv_vec_theta_uu = np.ones((val_tag_num, val_feature_num_uu)) / val_item_num
+    mat_drv_vec_p_t_drv_vec_theta_ui = np.ones((val_tag_num, val_feature_num_ui)) / val_item_num
+    mat_drv_vec_p_t_drv_vec_theta_ut = np.ones((val_tag_num, val_feature_num_ut)) / val_item_num
+    mat_drv_vec_p_t_drv_vec_theta_iu = np.ones((val_tag_num, val_feature_num_ui)) / val_item_num
+    mat_drv_vec_p_t_drv_vec_theta_ii = np.ones((val_tag_num, val_feature_num_ii)) / val_item_num
+    mat_drv_vec_p_t_drv_vec_theta_it = np.ones((val_tag_num, val_feature_num_it)) / val_item_num
+    mat_drv_vec_p_t_drv_vec_theta_tu = np.ones((val_tag_num, val_feature_num_ut)) / val_item_num
+    mat_drv_vec_p_t_drv_vec_theta_ti = np.ones((val_tag_num, val_feature_num_it)) / val_item_num
+    mat_drv_vec_p_t_drv_vec_theta_tt = np.ones((val_tag_num, val_feature_num_tt)) / val_item_num
+
+    #
+    # the gradients vector p by vector Theta => Eq.(23)-(25)
+    #
+    mat_drv_vec_p_u_drv_vec_xi_u = csr_matrix(np.ones((val_user_num, val_sizeof_xi_u)) / val_user_num,
+                                              shape=(val_user_num, val_sizeof_xi_u))
+    mat_drv_vec_p_u_drv_vec_xi_i = csr_matrix(np.ones((val_user_num, val_sizeof_xi_i)) / val_user_num,
+                                              shape=(val_user_num, val_sizeof_xi_i))
+    mat_drv_vec_p_i_drv_vec_xi_u = csr_matrix(np.ones((val_item_num, val_sizeof_xi_u)) / val_item_num,
+                                              shape=(val_item_num, val_sizeof_xi_u))
+    mat_drv_vec_p_i_drv_vec_xi_i = csr_matrix(np.ones((val_item_num, val_sizeof_xi_i)) / val_item_num,
+                                              shape=(val_item_num, val_sizeof_xi_i))
+    mat_drv_vec_p_t_drv_vec_xi_u = csr_matrix(np.ones((val_tag_num, val_sizeof_xi_u)) / val_tag_num,
+                                              shape=(val_tag_num, val_sizeof_xi_u))
+    mat_drv_vec_p_t_drv_vec_xi_i = csr_matrix(np.ones((val_tag_num, val_sizeof_xi_i)) / val_tag_num,
+                                              shape=(val_tag_num, val_sizeof_xi_i))
 
     #
     # calculate the derivatives of Xi by markovian process
     #
-    for itr in range(iterNum):
-        for i in range(valXiNum_U):
-            vecPU_Xi_U[:, i] = (1 - valAlpha) * (matA_UU_CN * vecPU_Xi_U[:, i] + matA_UI_CN * vecPI_Xi_U[:, i]
-                                                 + matA_UT_CN * vecPT_Xi_U[:, i]) + valAlpha * gradientP_U_U[:, i]
+    for itr in range(iter_num):
+        for i in range(val_sizeof_xi_u):
+            tmp = mat_a_uu_col_norm * mat_drv_vec_p_u_drv_vec_xi_u[:, i]
+            tmp += mat_a_ui_col_norm * mat_drv_vec_p_i_drv_vec_xi_u[:, i]
+            tmp += mat_a_ut_col_norm * mat_drv_vec_p_t_drv_vec_xi_u[:, i]
+            mat_drv_vec_p_u_drv_vec_xi_u[:, i] = (1 - val_alpha) * tmp + val_alpha * drv_vec_p_u_drv_vec_xi_u[:, i]
 
-            vecPI_Xi_U[:, i] = (1 - valAlpha) * (matA_IU_CN * vecPU_Xi_U[:, i] + matA_II_CN * vecPI_Xi_U[:, i]
-                                                 + matA_IT_CN * vecPT_Xi_U[:, i]) + valAlpha * gradientP_I_U[:, i]
+            tmp = mat_a_iu_col_norm * mat_drv_vec_p_u_drv_vec_xi_u[:, i]
+            tmp += mat_a_ii_col_norm * mat_drv_vec_p_i_drv_vec_xi_u[:, i]
+            tmp += mat_a_it_col_norm * mat_drv_vec_p_t_drv_vec_xi_u[:, i]
+            mat_drv_vec_p_i_drv_vec_xi_u[:, i] = (1 - val_alpha) * tmp + val_alpha * drv_vec_p_i_drv_vec_xi_u[:, i]
 
-            vecPT_Xi_U[:, i] = (1 - valAlpha) * (matA_TU_CN * vecPU_Xi_U[:, i] + matA_TI_CN * vecPI_Xi_U[:, i]
-                                                 + matA_TT_CN * vecPT_Xi_U[:, i])
+            tmp = mat_a_tu_col_norm * mat_drv_vec_p_u_drv_vec_xi_u[:, i]
+            tmp += mat_a_ti_col_norm * mat_drv_vec_p_i_drv_vec_xi_u[:, i]
+            tmp += mat_a_tt_col_norm * mat_drv_vec_p_t_drv_vec_xi_u[:, i]
+            mat_drv_vec_p_t_drv_vec_xi_u[:, i] = (1 - val_alpha) * tmp
 
-        for i in range(valXiNum_I):
-            vecPU_Xi_I[:, i] = (1 - valAlpha) * (matA_UU_CN * vecPU_Xi_I[:, i] + matA_UI_CN * vecPI_Xi_I[:, i]
-                                                 + matA_UT_CN * vecPT_Xi_I[:, i]) + valAlpha * gradientP_U_I[:, i]
+        for i in range(val_sizeof_xi_i):
+            tmp = mat_a_uu_col_norm * mat_drv_vec_p_u_drv_vec_xi_i[:, i]
+            tmp += mat_a_ui_col_norm * mat_drv_vec_p_i_drv_vec_xi_i[:, i]
+            tmp += mat_a_ut_col_norm * mat_drv_vec_p_t_drv_vec_xi_i[:, i]
+            mat_drv_vec_p_u_drv_vec_xi_i[:, i] = (1 - val_alpha) * tmp + val_alpha * drv_vec_p_u_drv_vec_xi_i[:, i]
 
-            vecPI_Xi_I[:, i] = (1 - valAlpha) * (matA_IU_CN * vecPU_Xi_I[:, i] + matA_II_CN * vecPI_Xi_I[:, i]
-                                                 + matA_IT_CN * vecPT_Xi_I[:, i]) + valAlpha * gradientP_I_I[:, i]
+            tmp = mat_a_iu_col_norm * mat_drv_vec_p_u_drv_vec_xi_i[:, i]
+            tmp += mat_a_ii_col_norm * mat_drv_vec_p_i_drv_vec_xi_i[:, i]
+            tmp += mat_a_it_col_norm * mat_drv_vec_p_t_drv_vec_xi_i[:, i]
+            mat_drv_vec_p_i_drv_vec_xi_i[:, i] = (1 - val_alpha) * tmp + val_alpha * drv_vec_p_i_drv_vec_xi_i[:, i]
 
-            vecPT_Xi_I[:, i] = (1 - valAlpha) * (matA_TU_CN * vecPU_Xi_I[:, i] + matA_TI_CN * vecPI_Xi_I[:, i]
-                                                 + matA_TT_CN * vecPT_Xi_I[:, i])
+            tmp = mat_a_tu_col_norm * mat_drv_vec_p_u_drv_vec_xi_i[:, i]
+            tmp += mat_a_ti_col_norm * mat_drv_vec_p_i_drv_vec_xi_i[:, i]
+            tmp += mat_a_tt_col_norm * mat_drv_vec_p_t_drv_vec_xi_i[:, i]
+            mat_drv_vec_p_t_drv_vec_xi_i[:, i] = (1 - val_alpha) * tmp
 
     #
     # calculate the derivatives of Theta by markovian process
     #
-    for itr in range(iterNum):
+    for itr in range(iter_num):
 
-        for i in range(valFeatureNum_UU):
-            vecPU_UUt = csr_matrix(vecPU_UU[:, i]).transpose()
-            vecPI_UUt = csr_matrix(vecPI_UU[:, i]).transpose()
-            vecPT_UUt = csr_matrix(vecPT_UU[:, i]).transpose()
-            vecPU_UU[:, i] = (1 - valAlpha) * (
-                matA_UU_CN * vecPU_UU[:, i] + (gradientA_UU_UU[i] * vecPU).toarray()[:, 0] +
-                matA_UI_CN * vecPI_UU[:, i] +
-                matA_UT_CN * vecPT_UU[:, i])
+        for i in range(val_feature_num_uu):
+            vecPU_UUt = csr_matrix(mat_drv_vec_p_u_drv_vec_theta_uu[:, i]).transpose()
+            vecPI_UUt = csr_matrix(mat_drv_vec_p_i_drv_vec_theta_uu[:, i]).transpose()
+            vecPT_UUt = csr_matrix(mat_drv_vec_p_t_drv_vec_theta_uu[:, i]).transpose()
 
-            vecPI_UU[:, i] = (1 - valAlpha) * (
-                matA_IU_CN * vecPU_UU[:, i] + (gradientA_IU_UU[i] * vecPU).toarray()[:, 0] +
-                matA_II_CN * vecPI_UU[:, i] +
-                matA_IT_CN * vecPT_UU[:, i])
+            tmp = mat_a_uu_col_norm * mat_drv_vec_p_u_drv_vec_theta_uu[:, i]
+            tmp += (drv_mat_a_uu_drv_vec_theta_uu[i] * vec_p_u).toarray()[:, 0]
+            tmp += mat_a_ui_col_norm * mat_drv_vec_p_i_drv_vec_theta_uu[:, i]
+            tmp += mat_a_ut_col_norm * mat_drv_vec_p_t_drv_vec_theta_uu[:, i]
+            mat_drv_vec_p_u_drv_vec_theta_uu[:, i] = (1 - val_alpha) * tmp
 
-            vecPT_UU[:, i] = (1 - valAlpha) * (
-                matA_TU_CN * vecPU_UU[:, i] + (gradientA_TU_UU[i] * vecPU).toarray()[:, 0] +
-                matA_TI_CN * vecPI_UU[:, i] +
-                matA_TT_CN * vecPT_UU[:, i])
+            tmp = mat_a_iu_col_norm * mat_drv_vec_p_u_drv_vec_theta_uu[:, i]
+            tmp += (drv_mat_a_iu_drv_vec_theta_uu[i] * vec_p_u).toarray()[:, 0]
+            tmp += mat_a_ii_col_norm * mat_drv_vec_p_i_drv_vec_theta_uu[:, i]
+            tmp += mat_a_it_col_norm * mat_drv_vec_p_t_drv_vec_theta_uu[:, i]
+            mat_drv_vec_p_i_drv_vec_theta_uu[:, i] = (1 - val_alpha) * tmp
 
-        for i in range(valFeatureNum_UI):
-            vecPU_UI[:, i] = (1 - valAlpha) * (matA_UU_CN * vecPU_UI[:, i] +
-                                               matA_UI_CN * vecPI_UI[:, i] + (gradientA_UI_UI[i] * vecPI).toarray()[:,
-                                                                             0] +
-                                               matA_UT_CN * vecPT_UI[:, i])
+            tmp = mat_a_tu_col_norm * mat_drv_vec_p_u_drv_vec_theta_uu[:, i]
+            tmp += (drv_mat_a_tu_drv_vec_theta_uu[i] * vec_p_u).toarray()[:, 0]
+            tmp += mat_a_ti_col_norm * mat_drv_vec_p_i_drv_vec_theta_uu[:, i]
+            tmp += mat_a_tt_col_norm * mat_drv_vec_p_t_drv_vec_theta_uu[:, i]
+            mat_drv_vec_p_t_drv_vec_theta_uu[:, i] = (1 - val_alpha) * tmp
 
-            vecPI_UI[:, i] = (1 - valAlpha) * (matA_IU_CN * vecPU_UI[:, i] +
-                                               matA_II_CN * vecPI_UI[:, i] + (gradientA_II_UI[i] * vecPI).toarray()[:,
-                                                                             0] +
-                                               matA_IT_CN * vecPT_UI[:, i])
+        for i in range(val_feature_num_ui):
+            tmp = mat_a_uu_col_norm * mat_drv_vec_p_u_drv_vec_theta_ui[:, i]
+            tmp += mat_a_ui_col_norm * mat_drv_vec_p_i_drv_vec_theta_ui[:, i]
+            tmp += (drv_mat_a_ui_drv_vec_theta_ui[i] * vec_p_i).toarray()[:, 0]
+            tmp += mat_a_ut_col_norm * mat_drv_vec_p_t_drv_vec_theta_ui[:, i]
+            mat_drv_vec_p_u_drv_vec_theta_ui[:, i] = (1 - val_alpha) * tmp
 
-            t = (gradientA_TI_UI[i] * vecPI).toarray()
-            vecPT_UI[:, i] = (1 - valAlpha) * (matA_TU_CN * vecPU_UI[:, i] +
-                                               matA_TI_CN * vecPI_UI[:, i] + (gradientA_TI_UI[i] * vecPI).toarray()[:,
-                                                                             0] +
-                                               matA_TT_CN * vecPT_UI[:, i])
+            tmp = mat_a_iu_col_norm * mat_drv_vec_p_u_drv_vec_theta_ui[:, i]
+            tmp += mat_a_ii_col_norm * mat_drv_vec_p_i_drv_vec_theta_ui[:, i]
+            tmp += (drv_mat_a_ii_drv_vec_theta_ui[i] * vec_p_i).toarray()[:, 0]
+            tmp += mat_a_it_col_norm * mat_drv_vec_p_t_drv_vec_theta_ui[:, i]
+            mat_drv_vec_p_i_drv_vec_theta_ui[:, i] = (1 - val_alpha) * tmp
 
-        for i in range(valFeatureNum_UT):
-            vecPU_UTt = csr_matrix(vecPU_UT[:, i]).transpose()
-            vecPI_UTt = csr_matrix(vecPI_UT[:, i]).transpose()
-            vecPT_UTt = csr_matrix(vecPT_UT[:, i]).transpose()
-            vecPU_UT[:, i] = (1 - valAlpha) * (matA_UU_CN * vecPU_UT[:, i] +
-                                               matA_UI_CN * vecPI_UT[:, i] +
-                                               matA_UT_CN * vecPT_UT[:, i] + (gradientA_UT_UT[i] * vecPT).toarray()[:,
-                                                                             0])
+            t = (drv_mat_a_ti_drv_vec_theta_ui[i] * vec_p_i).toarray()
+            tmp = mat_a_tu_col_norm * mat_drv_vec_p_u_drv_vec_theta_ui[:, i]
+            tmp += mat_a_ti_col_norm * mat_drv_vec_p_i_drv_vec_theta_ui[:, i]
+            tmp += (drv_mat_a_ti_drv_vec_theta_ui[i] * vec_p_i).toarray()[:, 0]
+            tmp += mat_a_tt_col_norm * mat_drv_vec_p_t_drv_vec_theta_ui[:, i]
+            mat_drv_vec_p_t_drv_vec_theta_ui[:, i] = (1 - val_alpha) * tmp
 
-            vecPI_UT[:, i] = (1 - valAlpha) * (matA_IU_CN * vecPU_UT[:, i] +
-                                               matA_II_CN * vecPI_UT[:, i] +
-                                               matA_IT_CN * vecPT_UT[:, i] + (gradientA_IT_UT[i] * vecPT).toarray()[:,
-                                                                             0])
+        for i in range(val_feature_num_ut):
+            vecPU_UTt = csr_matrix(mat_drv_vec_p_u_drv_vec_theta_ut[:, i]).transpose()
+            vecPI_UTt = csr_matrix(mat_drv_vec_p_i_drv_vec_theta_ut[:, i]).transpose()
+            vecPT_UTt = csr_matrix(mat_drv_vec_p_t_drv_vec_theta_ut[:, i]).transpose()
 
-            vecPT_UT[:, i] = (1 - valAlpha) * (matA_TU_CN * vecPU_UT[:, i] +
-                                               matA_TI_CN * vecPI_UT[:, i] +
-                                               matA_TT_CN * vecPT_UT[:, i] + (gradientA_TT_UT[i] * vecPT).toarray()[:,
-                                                                             0])
+            tmp = mat_a_uu_col_norm * mat_drv_vec_p_u_drv_vec_theta_ut[:, i]
+            tmp += mat_a_ui_col_norm * mat_drv_vec_p_i_drv_vec_theta_ut[:, i]
+            tmp += mat_a_ut_col_norm * mat_drv_vec_p_t_drv_vec_theta_ut[:, i]
+            tmp += (drv_mat_a_ut_drv_vec_theta_ut[i] * vec_p_t).toarray()[:, 0]
+            mat_drv_vec_p_u_drv_vec_theta_ut[:, i] = (1 - val_alpha) * tmp
 
-        for i in range(valFeatureNum_UI):
-            vecPU_IUt = csr_matrix(vecPU_IU[:, i]).transpose()
-            vecPI_IUt = csr_matrix(vecPI_IU[:, i]).transpose()
-            vecPT_IUt = csr_matrix(vecPT_IU[:, i]).transpose()
-            vecPU_IU[:, i] = (1 - valAlpha) * (
-                matA_UU_CN * vecPU_IU[:, i] + (gradientA_UU_IU[i] * vecPU).toarray()[:, 0] +
-                matA_UI_CN * vecPI_IU[:, i] +
-                matA_UT_CN * vecPT_IU[:, i])
+            tmp = mat_a_iu_col_norm * mat_drv_vec_p_u_drv_vec_theta_ut[:, i]
+            tmp += mat_a_ii_col_norm * mat_drv_vec_p_i_drv_vec_theta_ut[:, i]
+            tmp += mat_a_it_col_norm * mat_drv_vec_p_t_drv_vec_theta_ut[:, i]
+            tmp += (drv_mat_a_it_drv_vec_theta_ut[i] * vec_p_t).toarray()[:, 0]
+            mat_drv_vec_p_i_drv_vec_theta_ut[:, i] = (1 - val_alpha) * tmp
 
-            vecPI_IU[:, i] = (1 - valAlpha) * (
-                matA_IU_CN * vecPU_IU[:, i] + (gradientA_IU_IU[i] * vecPU).toarray()[:, 0] +
-                matA_II_CN * vecPI_IU[:, i] +
-                matA_IT_CN * vecPT_IU[:, i])
+            tmp = mat_a_tu_col_norm * mat_drv_vec_p_u_drv_vec_theta_ut[:, i]
+            tmp += mat_a_ti_col_norm * mat_drv_vec_p_i_drv_vec_theta_ut[:, i]
+            tmp += mat_a_tt_col_norm * mat_drv_vec_p_t_drv_vec_theta_ut[:, i]
+            tmp += (drv_mat_a_tt_drv_vec_theta_ut[i] * vec_p_t).toarray()[:, 0]
+            mat_drv_vec_p_t_drv_vec_theta_ut[:, i] = (1 - val_alpha) * tmp
 
-            vecPT_IU[:, i] = (1 - valAlpha) * (
-                matA_TU_CN * vecPU_IU[:, i] + (gradientA_TU_IU[i] * vecPU).toarray()[:, 0] +
-                matA_TI_CN * vecPI_IU[:, i] +
-                matA_TT_CN * vecPT_IU[:, i])
+        for i in range(val_feature_num_ui):
+            vecPU_IUt = csr_matrix(mat_drv_vec_p_u_drv_vec_theta_iu[:, i]).transpose()
+            vecPI_IUt = csr_matrix(mat_drv_vec_p_i_drv_vec_theta_iu[:, i]).transpose()
+            vecPT_IUt = csr_matrix(mat_drv_vec_p_t_drv_vec_theta_iu[:, i]).transpose()
 
-        for i in range(valFeatureNum_II):
-            vecPU_IIt = csr_matrix(vecPU_II[:, i]).transpose()
-            vecPI_IIt = csr_matrix(vecPI_II[:, i]).transpose()
-            vecPT_IIt = csr_matrix(vecPT_II[:, i]).transpose()
-            vecPU_II[:, i] = (1 - valAlpha) * (matA_UU_CN * vecPU_II[:, i] +
-                                               matA_UI_CN * vecPI_II[:, i] + (gradientA_UI_II[i] * vecPI).toarray()[:,
-                                                                             0] +
-                                               matA_UT_CN * vecPT_II[:, i])
+            tmp = mat_a_uu_col_norm * mat_drv_vec_p_u_drv_vec_theta_iu[:, i]
+            tmp += (drv_mat_a_uu_drv_vec_theta_iu[i] * vec_p_u).toarray()[:, 0]
+            tmp += mat_a_ui_col_norm * mat_drv_vec_p_i_drv_vec_theta_iu[:, i]
+            tmp += mat_a_ut_col_norm * mat_drv_vec_p_t_drv_vec_theta_iu[:, i]
+            mat_drv_vec_p_u_drv_vec_theta_iu[:, i] = (1 - val_alpha) * tmp
 
-            vecPI_II[:, i] = (1 - valAlpha) * (matA_IU_CN * vecPU_II[:, i] +
-                                               matA_II_CN * vecPI_II[:, i] + (gradientA_II_II[i] * vecPI).toarray()[:,
-                                                                             0] +
-                                               matA_IT_CN * vecPT_II[:, i])
+            tmp = mat_a_iu_col_norm * mat_drv_vec_p_u_drv_vec_theta_iu[:, i]
+            tmp += (drv_mat_a_iu_drv_vec_theta_iu[i] * vec_p_u).toarray()[:, 0]
+            tmp += mat_a_ii_col_norm * mat_drv_vec_p_i_drv_vec_theta_iu[:, i]
+            tmp += mat_a_it_col_norm * mat_drv_vec_p_t_drv_vec_theta_iu[:, i]
+            mat_drv_vec_p_i_drv_vec_theta_iu[:, i] = (1 - val_alpha) * tmp
 
-            vecPT_II[:, i] = (1 - valAlpha) * (matA_TU_CN * vecPU_II[:, i] +
-                                               matA_TI_CN * vecPI_II[:, i] + (gradientA_TI_II[i] * vecPI).toarray()[:,
-                                                                             0] +
-                                               matA_TT_CN * vecPT_II[:, i])
+            tmp = mat_a_tu_col_norm * mat_drv_vec_p_u_drv_vec_theta_iu[:, i]
+            tmp += (drv_mat_a_tu_drv_vec_theta_iu[i] * vec_p_u).toarray()[:, 0]
+            tmp += mat_a_ti_col_norm * mat_drv_vec_p_i_drv_vec_theta_iu[:, i]
+            tmp += mat_a_tt_col_norm * mat_drv_vec_p_t_drv_vec_theta_iu[:, i]
+            mat_drv_vec_p_t_drv_vec_theta_iu[:, i] = (1 - val_alpha) * tmp
 
-        for i in range(valFeatureNum_IT):
-            vecPU_ITt = csr_matrix(vecPU_IT[:, i]).transpose()
-            vecPI_ITt = csr_matrix(vecPI_IT[:, i]).transpose()
-            vecPT_ITt = csr_matrix(vecPT_IT[:, i]).transpose()
-            vecPU_IT[:, i] = (1 - valAlpha) * (matA_UU_CN * vecPU_IT[:, i] +
-                                               matA_UI_CN * vecPI_IT[:, i] +
-                                               matA_UT_CN * vecPT_IT[:, i] + (gradientA_UT_IT[i] * vecPT).toarray()[:,
-                                                                             0])
+        for i in range(val_feature_num_ii):
+            vecPU_IIt = csr_matrix(mat_drv_vec_p_u_drv_vec_theta_ii[:, i]).transpose()
+            vecPI_IIt = csr_matrix(mat_drv_vec_p_i_drv_vec_theta_ii[:, i]).transpose()
+            vecPT_IIt = csr_matrix(mat_drv_vec_p_t_drv_vec_theta_ii[:, i]).transpose()
 
-            vecPI_IT[:, i] = (1 - valAlpha) * (matA_IU_CN * vecPU_IT[:, i] +
-                                               matA_II_CN * vecPI_IT[:, i] +
-                                               matA_IT_CN * vecPT_IT[:, i] + (gradientA_IT_IT[i] * vecPT).toarray()[:,
-                                                                             0])
+            tmp = mat_a_uu_col_norm * mat_drv_vec_p_u_drv_vec_theta_ii[:, i]
+            tmp += mat_a_ui_col_norm * mat_drv_vec_p_i_drv_vec_theta_ii[:, i]
+            tmp += (drv_mat_a_ui_drv_vec_theta_ii[i] * vec_p_i).toarray()[:, 0]
+            tmp += mat_a_ut_col_norm * mat_drv_vec_p_t_drv_vec_theta_ii[:, i]
+            mat_drv_vec_p_u_drv_vec_theta_ii[:, i] = (1 - val_alpha) * tmp
 
-            vecPT_IT[:, i] = (1 - valAlpha) * (matA_TU_CN * vecPU_IT[:, i] +
-                                               matA_TI_CN * vecPI_IT[:, i] +
-                                               matA_TT_CN * vecPT_IT[:, i] + (gradientA_TT_IT[i] * vecPT).toarray()[:,
-                                                                             0])
+            tmp = mat_a_iu_col_norm * mat_drv_vec_p_u_drv_vec_theta_ii[:, i]
+            tmp += mat_a_ii_col_norm * mat_drv_vec_p_i_drv_vec_theta_ii[:, i]
+            tmp += (drv_mat_a_ii_drv_vec_theta_ii[i] * vec_p_i).toarray()[:, 0]
+            tmp += mat_a_it_col_norm * mat_drv_vec_p_t_drv_vec_theta_ii[:, i]
+            mat_drv_vec_p_i_drv_vec_theta_ii[:, i] = (1 - val_alpha) * tmp
 
-        for i in range(valFeatureNum_UT):
-            vecPU_TUt = csr_matrix(vecPU_TU[:, i]).transpose()
-            vecPI_TUt = csr_matrix(vecPI_TU[:, i]).transpose()
-            vecPT_TUt = csr_matrix(vecPT_TU[:, i]).transpose()
-            vecPU_TU[:, i] = (1 - valAlpha) * (
-                matA_UU_CN * vecPU_TU[:, i] + (gradientA_UU_TU[i] * vecPU).toarray()[:, 0] +
-                matA_UI_CN * vecPI_TU[:, i] +
-                matA_UT_CN * vecPT_TU[:, i])
+            tmp = mat_a_tu_col_norm * mat_drv_vec_p_u_drv_vec_theta_ii[:, i]
+            tmp += mat_a_ti_col_norm * mat_drv_vec_p_i_drv_vec_theta_ii[:, i]
+            tmp += (drv_mat_a_ti_drv_vec_theta_ii[i] * vec_p_i).toarray()[:, 0]
+            tmp += mat_a_tt_col_norm * mat_drv_vec_p_t_drv_vec_theta_ii[:, i]
+            mat_drv_vec_p_t_drv_vec_theta_ii[:, i] = (1 - val_alpha) * tmp
 
-            vecPI_TU[:, i] = (1 - valAlpha) * (
-                matA_IU_CN * vecPU_TU[:, i] + (gradientA_IU_TU[i] * vecPU).toarray()[:, 0] +
-                matA_II_CN * vecPI_TU[:, i] +
-                matA_IT_CN * vecPT_TU[:, i])
+        for i in range(val_feature_num_it):
+            vecPU_ITt = csr_matrix(mat_drv_vec_p_u_drv_vec_theta_it[:, i]).transpose()
+            vecPI_ITt = csr_matrix(mat_drv_vec_p_i_drv_vec_theta_it[:, i]).transpose()
+            vecPT_ITt = csr_matrix(mat_drv_vec_p_t_drv_vec_theta_it[:, i]).transpose()
 
-            vecPT_TU[:, i] = (1 - valAlpha) * (
-                matA_TU_CN * vecPU_TU[:, i] + (gradientA_TU_TU[i] * vecPU).toarray()[:, 0] +
-                matA_TI_CN * vecPI_TU[:, i] +
-                matA_TT_CN * vecPT_TU[:, i])
+            tmp = mat_a_uu_col_norm * mat_drv_vec_p_u_drv_vec_theta_it[:, i]
+            tmp += mat_a_ui_col_norm * mat_drv_vec_p_i_drv_vec_theta_it[:, i]
+            tmp += mat_a_ut_col_norm * mat_drv_vec_p_t_drv_vec_theta_it[:, i]
+            tmp += (drv_mat_a_ut_drv_vec_theta_it[i] * vec_p_t).toarray()[:, 0]
+            mat_drv_vec_p_u_drv_vec_theta_it[:, i] = (1 - val_alpha) * ()
 
-        for i in range(valFeatureNum_IT):
-            vecPU_TIt = csr_matrix(vecPU_TI[:, i]).transpose()
-            vecPI_TIt = csr_matrix(vecPI_TI[:, i]).transpose()
-            vecPT_TIt = csr_matrix(vecPT_TI[:, i]).transpose()
-            vecPU_TI[:, i] = (1 - valAlpha) * (matA_UU_CN * vecPU_TI[:, i] +
-                                               matA_UI_CN * vecPI_TI[:, i] + (gradientA_UI_TI[i] * vecPI).toarray()[:,
-                                                                             0] +
-                                               matA_UT_CN * vecPT_TI[:, i])
+            tmp = mat_a_iu_col_norm * mat_drv_vec_p_u_drv_vec_theta_it[:, i]
+            tmp += mat_a_ii_col_norm * mat_drv_vec_p_i_drv_vec_theta_it[:, i]
+            tmp += mat_a_it_col_norm * mat_drv_vec_p_t_drv_vec_theta_it[:, i]
+            tmp += (drv_mat_a_it_drv_vec_theta_it[i] * vec_p_t).toarray()[:, 0]
+            mat_drv_vec_p_i_drv_vec_theta_it[:, i] = (1 - val_alpha) * tmp
 
-            vecPI_TI[:, i] = (1 - valAlpha) * (matA_IU_CN * vecPU_TI[:, i] +
-                                               matA_II_CN * vecPI_TI[:, i] + (gradientA_II_TI[i] * vecPI).toarray()[:,
-                                                                             0] +
-                                               matA_IT_CN * vecPT_TI[:, i])
+            tmp = mat_a_tu_col_norm * mat_drv_vec_p_u_drv_vec_theta_it[:, i]
+            tmp += mat_a_ti_col_norm * mat_drv_vec_p_i_drv_vec_theta_it[:, i]
+            tmp += mat_a_tt_col_norm * mat_drv_vec_p_t_drv_vec_theta_it[:, i]
+            tmp += (drv_mat_a_tt_drv_vec_theta_it[i] * vec_p_t).toarray()[:, 0]
+            mat_drv_vec_p_t_drv_vec_theta_it[:, i] = (1 - val_alpha) * ()
 
-            vecPT_TI[:, i] = (1 - valAlpha) * (matA_TU_CN * vecPU_TI[:, i] +
-                                               matA_TI_CN * vecPI_TI[:, i] + (gradientA_TI_TI[i] * vecPI).toarray()[:,
-                                                                             0] +
-                                               matA_TT_CN * vecPT_TI[:, i])
+        for i in range(val_feature_num_ut):
+            vecPU_TUt = csr_matrix(mat_drv_vec_p_u_drv_vec_theta_tu[:, i]).transpose()
+            vecPI_TUt = csr_matrix(mat_drv_vec_p_i_drv_vec_theta_tu[:, i]).transpose()
+            vecPT_TUt = csr_matrix(mat_drv_vec_p_t_drv_vec_theta_tu[:, i]).transpose()
 
-        for i in range(valFeatureNum_TT):
-            vecPU_TTt = csr_matrix(vecPU_TT[:, i]).transpose()
-            vecPI_TTt = csr_matrix(vecPI_TT[:, i]).transpose()
-            vecPT_TTt = csr_matrix(vecPT_TT[:, i]).transpose()
-            vecPU_TT[:, i] = (1 - valAlpha) * (matA_UU_CN * vecPU_TT[:, i] +
-                                               matA_UI_CN * vecPI_TT[:, i] +
-                                               matA_UT_CN * vecPT_TT[:, i] + (gradientA_UT_TT[i] * vecPT).toarray()[:,
-                                                                             0])
+            tmp = mat_a_uu_col_norm * mat_drv_vec_p_u_drv_vec_theta_tu[:, i]
+            tmp += (drv_mat_a_uu_drv_vec_theta_tu[i] * vec_p_u).toarray()[:, 0]
+            tmp += mat_a_ui_col_norm * mat_drv_vec_p_i_drv_vec_theta_tu[:, i]
+            tmp += mat_a_ut_col_norm * mat_drv_vec_p_t_drv_vec_theta_tu[:, i]
+            mat_drv_vec_p_u_drv_vec_theta_tu[:, i] = (1 - val_alpha) * tmp
 
-            vecPI_TT[:, i] = (1 - valAlpha) * (matA_IU_CN * vecPU_TT[:, i] +
-                                               matA_II_CN * vecPI_TT[:, i] +
-                                               matA_IT_CN * vecPT_TT[:, i] + (gradientA_IT_TT[i] * vecPT).toarray()[:,
-                                                                             0])
+            tmp = mat_a_iu_col_norm * mat_drv_vec_p_u_drv_vec_theta_tu[:, i]
+            tmp += (drv_mat_a_iu_drv_vec_theta_tu[i] * vec_p_u).toarray()[:, 0]
+            tmp += mat_a_ii_col_norm * mat_drv_vec_p_i_drv_vec_theta_tu[:, i]
+            tmp += mat_a_it_col_norm * mat_drv_vec_p_t_drv_vec_theta_tu[:, i]
+            mat_drv_vec_p_i_drv_vec_theta_tu[:, i] = (1 - val_alpha) * tmp
 
-            vecPT_TT[:, i] = (1 - valAlpha) * (matA_TU_CN * vecPU_TT[:, i] +
-                                               matA_TI_CN * vecPI_TT[:, i] +
-                                               matA_TT_CN * vecPT_TT[:, i] + (gradientA_TT_TT[i] * vecPT).toarray()[:,
-                                                                             0])
+            tmp = mat_a_tu_col_norm * mat_drv_vec_p_u_drv_vec_theta_tu[:, i]
+            tmp += (drv_mat_a_tu_drv_vec_theta_tu[i] * vec_p_u).toarray()[:, 0]
+            tmp += mat_a_ti_col_norm * mat_drv_vec_p_i_drv_vec_theta_tu[:, i]
+            tmp += mat_a_tt_col_norm * mat_drv_vec_p_t_drv_vec_theta_tu[:, i]
+            mat_drv_vec_p_t_drv_vec_theta_tu[:, i] = (1 - val_alpha) * tmp
 
-    J_Theta_UU = 0
-    J_Theta_UI = 0
-    J_Theta_UT = 0
-    J_Theta_IU = 0
-    J_Theta_II = 0
-    J_Theta_IT = 0
-    J_Theta_TU = 0
-    J_Theta_TI = 0
-    J_Theta_TT = 0
+        for i in range(val_feature_num_it):
+            vecPU_TIt = csr_matrix(mat_drv_vec_p_u_drv_vec_theta_ti[:, i]).transpose()
+            vecPI_TIt = csr_matrix(mat_drv_vec_p_i_drv_vec_theta_ti[:, i]).transpose()
+            vecPT_TIt = csr_matrix(mat_drv_vec_p_t_drv_vec_theta_ti[:, i]).transpose()
 
-    J_Xi_U = 0
-    J_Xi_I = 0
+            tmp = mat_a_uu_col_norm * mat_drv_vec_p_u_drv_vec_theta_ti[:, i]
+            tmp += mat_a_ui_col_norm * mat_drv_vec_p_i_drv_vec_theta_ti[:, i]
+            tmp += (drv_mat_a_ui_drv_vec_theta_ti[i] * vec_p_i).toarray()[:, 0]
+            tmp += mat_a_ut_col_norm * mat_drv_vec_p_t_drv_vec_theta_ti[:, i]
+            mat_drv_vec_p_u_drv_vec_theta_ti[:, i] = (1 - val_alpha) * tmp
+
+            tmp = mat_a_iu_col_norm * mat_drv_vec_p_u_drv_vec_theta_ti[:, i]
+            tmp += mat_a_ii_col_norm * mat_drv_vec_p_i_drv_vec_theta_ti[:, i]
+            tmp += (drv_mat_a_ii_drv_vec_theta_ti[i] * vec_p_i).toarray()[:, 0]
+            tmp += mat_a_it_col_norm * mat_drv_vec_p_t_drv_vec_theta_ti[:, i]
+            mat_drv_vec_p_i_drv_vec_theta_ti[:, i] = (1 - val_alpha) * tmp
+
+            tmp = mat_a_tu_col_norm * mat_drv_vec_p_u_drv_vec_theta_ti[:, i]
+            tmp += mat_a_ti_col_norm * mat_drv_vec_p_i_drv_vec_theta_ti[:, i]
+            tmp += (drv_mat_a_ti_drv_vec_theta_ti[i] * vec_p_i).toarray()[:, 0]
+            tmp += mat_a_tt_col_norm * mat_drv_vec_p_t_drv_vec_theta_ti[:, i]
+            mat_drv_vec_p_t_drv_vec_theta_ti[:, i] = (1 - val_alpha) * tmp
+
+        for i in range(val_feature_num_tt):
+            vecPU_TTt = csr_matrix(mat_drv_vec_p_u_drv_vec_theta_tt[:, i]).transpose()
+            vecPI_TTt = csr_matrix(mat_drv_vec_p_i_drv_vec_theta_tt[:, i]).transpose()
+            vecPT_TTt = csr_matrix(mat_drv_vec_p_t_drv_vec_theta_tt[:, i]).transpose()
+
+            tmp = mat_a_uu_col_norm * mat_drv_vec_p_u_drv_vec_theta_tt[:, i]
+            tmp += mat_a_ui_col_norm * mat_drv_vec_p_i_drv_vec_theta_tt[:, i]
+            tmp += mat_a_ut_col_norm * mat_drv_vec_p_t_drv_vec_theta_tt[:, i]
+            tmp += (drv_mat_a_ut_drv_vec_theta_tt[i] * vec_p_t).toarray()[:, 0]
+            mat_drv_vec_p_u_drv_vec_theta_tt[:, i] = (1 - val_alpha) * tmp
+
+            tmp = mat_a_iu_col_norm * mat_drv_vec_p_u_drv_vec_theta_tt[:, i]
+            tmp += mat_a_ii_col_norm * mat_drv_vec_p_i_drv_vec_theta_tt[:, i]
+            tmp += mat_a_it_col_norm * mat_drv_vec_p_t_drv_vec_theta_tt[:, i]
+            tmp += (drv_mat_a_it_drv_vec_theta_tt[i] * vec_p_t).toarray()[:, 0]
+            mat_drv_vec_p_i_drv_vec_theta_tt[:, i] = (1 - val_alpha) * tmp
+
+            tmp = mat_a_tu_col_norm * mat_drv_vec_p_u_drv_vec_theta_tt[:, i]
+            tmp += mat_a_ti_col_norm * mat_drv_vec_p_i_drv_vec_theta_tt[:, i]
+            tmp += mat_a_tt_col_norm * mat_drv_vec_p_t_drv_vec_theta_tt[:, i]
+            tmp += (drv_mat_a_tt_drv_vec_theta_tt[i] * vec_p_t).toarray()[:, 0]
+            mat_drv_vec_p_t_drv_vec_theta_tt[:, i] = (1 - val_alpha) * tmp
+
+    vec_drv_val_j_drv_vec_theta_uu = 0
+    vec_drv_val_j_drv_vec_theta_ui = 0
+    vec_drv_val_j_drv_vec_theta_ut = 0
+    vec_drv_val_j_drv_vec_theta_iu = 0
+    vec_drv_val_j_drv_vec_theta_ii = 0
+    vec_drv_val_j_drv_vec_theta_it = 0
+    vec_drv_val_j_drv_vec_theta_tu = 0
+    vec_drv_val_j_drv_vec_theta_ti = 0
+    vec_drv_val_j_drv_vec_theta_tt = 0
+
+    vec_drv_val_j_drv_vec_xi_u = 0
+    vec_drv_val_j_drv_vec_xi_i = 0
 
     J = 0
 
-    for p_ins in Ptags:
-        for n_ins in Ntags:
-            t = vecQT[n_ins, 0] - vecQT[p_ins, 0]
-            pp = (-1) * valBeta * t
+    for p_ins in list_positive_tags:
+        for n_ins in list_negative_tags:
+            t = vec_q_t[n_ins, 0] - vec_q_t[p_ins, 0]
+            pp = (-1) * val_beta * t
             r = math.exp(pp)
             s = 1 / (1 + r)
 
             J += s
 
-            s_Theta_UU = vecPT_UU[n_ins, :] - vecPT_UU[p_ins, :]
-            s_Theta_UI = vecPT_UI[n_ins, :] - vecPT_UI[p_ins, :]
-            s_Theta_UT = vecPT_UT[n_ins, :] - vecPT_UT[p_ins, :]
-            s_Theta_IU = vecPT_IU[n_ins, :] - vecPT_IU[p_ins, :]
-            s_Theta_II = vecPT_II[n_ins, :] - vecPT_II[p_ins, :]
-            s_Theta_IT = vecPT_IT[n_ins, :] - vecPT_IT[p_ins, :]
-            s_Theta_TU = vecPT_TU[n_ins, :] - vecPT_TU[p_ins, :]
-            s_Theta_TI = vecPT_TI[n_ins, :] - vecPT_TI[p_ins, :]
-            s_Theta_TT = vecPT_TT[n_ins, :] - vecPT_TT[p_ins, :]
+            s_Theta_UU = mat_drv_vec_p_t_drv_vec_theta_uu[n_ins, :] - mat_drv_vec_p_t_drv_vec_theta_uu[p_ins, :]
+            s_Theta_UI = mat_drv_vec_p_t_drv_vec_theta_ui[n_ins, :] - mat_drv_vec_p_t_drv_vec_theta_ui[p_ins, :]
+            s_Theta_UT = mat_drv_vec_p_t_drv_vec_theta_ut[n_ins, :] - mat_drv_vec_p_t_drv_vec_theta_ut[p_ins, :]
+            s_Theta_IU = mat_drv_vec_p_t_drv_vec_theta_iu[n_ins, :] - mat_drv_vec_p_t_drv_vec_theta_iu[p_ins, :]
+            s_Theta_II = mat_drv_vec_p_t_drv_vec_theta_ii[n_ins, :] - mat_drv_vec_p_t_drv_vec_theta_ii[p_ins, :]
+            s_Theta_IT = mat_drv_vec_p_t_drv_vec_theta_it[n_ins, :] - mat_drv_vec_p_t_drv_vec_theta_it[p_ins, :]
+            s_Theta_TU = mat_drv_vec_p_t_drv_vec_theta_tu[n_ins, :] - mat_drv_vec_p_t_drv_vec_theta_tu[p_ins, :]
+            s_Theta_TI = mat_drv_vec_p_t_drv_vec_theta_ti[n_ins, :] - mat_drv_vec_p_t_drv_vec_theta_ti[p_ins, :]
+            s_Theta_TT = mat_drv_vec_p_t_drv_vec_theta_tt[n_ins, :] - mat_drv_vec_p_t_drv_vec_theta_tt[p_ins, :]
 
-            J_Theta_UU += valBeta * s * (1 - s) * s_Theta_UU
-            J_Theta_UI += valBeta * s * (1 - s) * s_Theta_UI
-            J_Theta_UT += valBeta * s * (1 - s) * s_Theta_UT
-            J_Theta_IU += valBeta * s * (1 - s) * s_Theta_IU
-            J_Theta_II += valBeta * s * (1 - s) * s_Theta_II
-            J_Theta_IT += valBeta * s * (1 - s) * s_Theta_IT
-            J_Theta_TU += valBeta * s * (1 - s) * s_Theta_TU
-            J_Theta_TI += valBeta * s * (1 - s) * s_Theta_TI
-            J_Theta_TT += valBeta * s * (1 - s) * s_Theta_TT
+            vec_drv_val_j_drv_vec_theta_uu += val_beta * s * (1 - s) * s_Theta_UU
+            vec_drv_val_j_drv_vec_theta_ui += val_beta * s * (1 - s) * s_Theta_UI
+            vec_drv_val_j_drv_vec_theta_ut += val_beta * s * (1 - s) * s_Theta_UT
+            vec_drv_val_j_drv_vec_theta_iu += val_beta * s * (1 - s) * s_Theta_IU
+            vec_drv_val_j_drv_vec_theta_ii += val_beta * s * (1 - s) * s_Theta_II
+            vec_drv_val_j_drv_vec_theta_it += val_beta * s * (1 - s) * s_Theta_IT
+            vec_drv_val_j_drv_vec_theta_tu += val_beta * s * (1 - s) * s_Theta_TU
+            vec_drv_val_j_drv_vec_theta_ti += val_beta * s * (1 - s) * s_Theta_TI
+            vec_drv_val_j_drv_vec_theta_tt += val_beta * s * (1 - s) * s_Theta_TT
 
-            s_Xi_U = vecPT_Xi_U[n_ins, :] - vecPT_Xi_U[p_ins, :]
-            s_Xi_I = vecPT_Xi_I[n_ins, :] - vecPT_Xi_I[p_ins, :]
+            s_Xi_U = mat_drv_vec_p_t_drv_vec_xi_u[n_ins, :] - mat_drv_vec_p_t_drv_vec_xi_u[p_ins, :]
+            s_Xi_I = mat_drv_vec_p_t_drv_vec_xi_i[n_ins, :] - mat_drv_vec_p_t_drv_vec_xi_i[p_ins, :]
 
-            J_Xi_U = J_Xi_U + valBeta * s * (1 - s) * s_Xi_U
-            J_Xi_I = J_Xi_I + valBeta * s * (1 - s) * s_Xi_I
+            vec_drv_val_j_drv_vec_xi_u = vec_drv_val_j_drv_vec_xi_u + val_beta * s * (1 - s) * s_Xi_U
+            vec_drv_val_j_drv_vec_xi_i = vec_drv_val_j_drv_vec_xi_i + val_beta * s * (1 - s) * s_Xi_I
 
-    J /= lengthPT * lengthNT
+    J /= val_sizeof_positive_tags * val_sizeof_negative_tags
 
-    J_Theta_UU /= lengthPT * lengthNT
-    J_Theta_UI /= lengthPT * lengthNT
-    J_Theta_UT /= lengthPT * lengthNT
-    J_Theta_IU /= lengthPT * lengthNT
-    J_Theta_II /= lengthPT * lengthNT
-    J_Theta_IT /= lengthPT * lengthNT
-    J_Theta_IT /= lengthPT * lengthNT
-    J_Theta_TI /= lengthPT * lengthNT
-    J_Theta_TT /= lengthPT * lengthNT
+    vec_drv_val_j_drv_vec_theta_uu /= val_sizeof_positive_tags * val_sizeof_negative_tags
+    vec_drv_val_j_drv_vec_theta_ui /= val_sizeof_positive_tags * val_sizeof_negative_tags
+    vec_drv_val_j_drv_vec_theta_ut /= val_sizeof_positive_tags * val_sizeof_negative_tags
+    vec_drv_val_j_drv_vec_theta_iu /= val_sizeof_positive_tags * val_sizeof_negative_tags
+    vec_drv_val_j_drv_vec_theta_ii /= val_sizeof_positive_tags * val_sizeof_negative_tags
+    vec_drv_val_j_drv_vec_theta_it /= val_sizeof_positive_tags * val_sizeof_negative_tags
+    vec_drv_val_j_drv_vec_theta_it /= val_sizeof_positive_tags * val_sizeof_negative_tags
+    vec_drv_val_j_drv_vec_theta_ti /= val_sizeof_positive_tags * val_sizeof_negative_tags
+    vec_drv_val_j_drv_vec_theta_tt /= val_sizeof_positive_tags * val_sizeof_negative_tags
 
-    vecTheta_UU -= valLR * J_Theta_UU
-    vecTheta_UI -= valLR * J_Theta_UI
-    vecTheta_UT -= valLR * J_Theta_UT
-    vecTheta_IU -= valLR * J_Theta_IU
-    vecTheta_II -= valLR * J_Theta_II
-    vecTheta_IT -= valLR * J_Theta_IT
-    vecTheta_TU -= valLR * J_Theta_TU
-    vecTheta_TI -= valLR * J_Theta_TI
-    vecTheta_TT -= valLR * J_Theta_TT
+    vec_theta_uu -= val_learning_rate * vec_drv_val_j_drv_vec_theta_uu
+    vec_theta_ui -= val_learning_rate * vec_drv_val_j_drv_vec_theta_ui
+    vec_theta_ut -= val_learning_rate * vec_drv_val_j_drv_vec_theta_ut
+    vec_theta_iu -= val_learning_rate * vec_drv_val_j_drv_vec_theta_iu
+    vec_theta_ii -= val_learning_rate * vec_drv_val_j_drv_vec_theta_ii
+    vec_theta_it -= val_learning_rate * vec_drv_val_j_drv_vec_theta_it
+    vec_theta_tu -= val_learning_rate * vec_drv_val_j_drv_vec_theta_tu
+    vec_theta_ti -= val_learning_rate * vec_drv_val_j_drv_vec_theta_ti
+    vec_theta_tt -= val_learning_rate * vec_drv_val_j_drv_vec_theta_tt
 
-    J_Xi_U /= lengthPT * lengthNT
-    J_Xi_I /= lengthPT * lengthNT
+    vec_drv_val_j_drv_vec_xi_u /= val_sizeof_positive_tags * val_sizeof_negative_tags
+    vec_drv_val_j_drv_vec_xi_i /= val_sizeof_positive_tags * val_sizeof_negative_tags
 
-    vecXi_U = vecXi_U - valLR * J_Xi_U
-    vecXi_I = vecXi_I - valLR * J_Xi_I
+    vec_xi_u -= val_learning_rate * vec_drv_val_j_drv_vec_xi_u
+    vec_xi_i -= val_learning_rate * vec_drv_val_j_drv_vec_xi_i
 
-    diffTheta = 0
+    val_diff_theta = 0
 
-    if len(J_Theta_UU) > 0:
-        diffTheta += transpose(J_Theta_UU) * J_Theta_UU
-    if len(J_Theta_UI) > 0:
-        diffTheta += transpose(J_Theta_UI) * J_Theta_UI
-    if len(J_Theta_UT) > 0:
-        diffTheta += transpose(J_Theta_UT) * J_Theta_UT
-    if len(J_Theta_IU) > 0:
-        diffTheta += transpose(J_Theta_IU) * J_Theta_IU
-    if len(J_Theta_II) > 0:
-        diffTheta += transpose(J_Theta_II) * J_Theta_II
-    if len(J_Theta_IT) > 0:
-        diffTheta += transpose(J_Theta_IT) * J_Theta_IT
-    if len(J_Theta_TU) > 0:
-        diffTheta += transpose(J_Theta_TU) * J_Theta_TU
-    if len(J_Theta_TI) > 0:
-        diffTheta += transpose(J_Theta_TI) * J_Theta_TI
-    if len(J_Theta_TT) > 0:
-        diffTheta += transpose(J_Theta_TT) * J_Theta_TT
+    if len(vec_drv_val_j_drv_vec_theta_uu) > 0:
+        val_diff_theta += transpose(vec_drv_val_j_drv_vec_theta_uu) * vec_drv_val_j_drv_vec_theta_uu
+        
+    if len(vec_drv_val_j_drv_vec_theta_ui) > 0:
+        val_diff_theta += transpose(vec_drv_val_j_drv_vec_theta_ui) * vec_drv_val_j_drv_vec_theta_ui
+        
+    if len(vec_drv_val_j_drv_vec_theta_ut) > 0:
+        val_diff_theta += transpose(vec_drv_val_j_drv_vec_theta_ut) * vec_drv_val_j_drv_vec_theta_ut
+        
+    if len(vec_drv_val_j_drv_vec_theta_iu) > 0:
+        val_diff_theta += transpose(vec_drv_val_j_drv_vec_theta_iu) * vec_drv_val_j_drv_vec_theta_iu
+        
+    if len(vec_drv_val_j_drv_vec_theta_ii) > 0:
+        val_diff_theta += transpose(vec_drv_val_j_drv_vec_theta_ii) * vec_drv_val_j_drv_vec_theta_ii
+        
+    if len(vec_drv_val_j_drv_vec_theta_it) > 0:
+        val_diff_theta += transpose(vec_drv_val_j_drv_vec_theta_it) * vec_drv_val_j_drv_vec_theta_it
+        
+    if len(vec_drv_val_j_drv_vec_theta_tu) > 0:
+        val_diff_theta += transpose(vec_drv_val_j_drv_vec_theta_tu) * vec_drv_val_j_drv_vec_theta_tu
+        
+    if len(vec_drv_val_j_drv_vec_theta_ti) > 0:
+        val_diff_theta += transpose(vec_drv_val_j_drv_vec_theta_ti) * vec_drv_val_j_drv_vec_theta_ti
+        
+    if len(vec_drv_val_j_drv_vec_theta_tt) > 0:
+        val_diff_theta += transpose(vec_drv_val_j_drv_vec_theta_tt) * vec_drv_val_j_drv_vec_theta_tt
 
-    diffTheta = diffTheta[0]
+    val_diff_theta = val_diff_theta[0]
 
-    diffXi = transpose(J_Xi_U) * J_Xi_U + transpose(J_Xi_U) * J_Xi_U
-    diffXi = diffXi[0, 0]
+    val_diff_xi = transpose(vec_drv_val_j_drv_vec_xi_u) * vec_drv_val_j_drv_vec_xi_u
+    val_diff_xi += transpose(vec_drv_val_j_drv_vec_xi_u) * vec_drv_val_j_drv_vec_xi_u
+    val_diff_xi = val_diff_xi[0, 0]
 
     print('J = ' + str(J))
-    print('diffXi      = ' + str(diffXi))
-    print('vecXi_U     = ' + str(vecXi_U)     + '   vecXi_I     = ' + str(vecXi_I))
-    print('J_Xi_U      = ' + str(J_Xi_U[0, 0])      + '   J_Xi_I      = ' + str(J_Xi_I[0, 0]))
-    print('diffTheta   = ' + str(diffTheta))
-    print('vecTheta_UI = ' + str(vecTheta_UI) + '   vecTheta_UT = ' + str(vecTheta_UT))
-
+    print('val_diff_xi      = ' + str(val_diff_xi))
+    print('vec_xi_u     = ' + str(vec_xi_u)     + '   vec_xi_i     = ' + str(vec_xi_i))
+    print('vec_drv_val_j_drv_vec_xi_u      = ' + str(vec_drv_val_j_drv_vec_xi_u[0, 0]) +
+          '   vec_drv_val_j_drv_vec_xi_i      = ' + str(vec_drv_val_j_drv_vec_xi_i[0, 0]))
+    print('val_diff_theta   = ' + str(val_diff_theta))
+    print('vec_theta_ui = ' + str(vec_theta_ui) + '   vec_theta_ut = ' + str(vec_theta_ut))
 
     '''
     if J < valConvergeThreshold_J:
         isConverge = True
     '''
     '''
-    if diffTheta < 10e-40 and diffXi < 10e-40:
+    if val_diff_theta < 10e-40 and val_diff_xi < 10e-40:
         isConverge = True
     '''
 
     if line_count == 2000:
         isConverge = True
 
-print('\nvecTheta_UU = ' + str(vecTheta_UU))
-print('vecTheta_UI = ' + str(vecTheta_UI))
-print('vecTheta_UT = ' + str(vecTheta_UT))
-print('vecTheta_IU = ' + str(vecTheta_IU))
-print('vecTheta_II = ' + str(vecTheta_II))
-print('vecTheta_IT = ' + str(vecTheta_IT))
-print('vecTheta_TU = ' + str(vecTheta_TU))
-print('vecTheta_TI = ' + str(vecTheta_TI))
-print('vecTheta_TT = ' + str(vecTheta_TT))
+print('\nvec_theta_uu = ' + str(vec_theta_uu))
+print('vec_theta_ui = ' + str(vec_theta_ui))
+print('vec_theta_ut = ' + str(vec_theta_ut))
+print('vec_theta_iu = ' + str(vec_theta_iu))
+print('vec_theta_ii = ' + str(vec_theta_ii))
+print('vec_theta_it = ' + str(vec_theta_it))
+print('vec_theta_tu = ' + str(vec_theta_tu))
+print('vec_theta_ti = ' + str(vec_theta_ti))
+print('vec_theta_tt = ' + str(vec_theta_tt))
 
-print('vecXi_U = ' + str(vecXi_U[0]))
-print('vecXi_I = ' + str(vecXi_I[0]))
+print('vec_xi_u = ' + str(vec_xi_u[0]))
+print('vec_xi_i = ' + str(vec_xi_i[0]))
