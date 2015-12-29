@@ -35,10 +35,6 @@ val_feature_num_tt = 0
 val_sizeof_xi_u = 1
 val_sizeof_xi_i = 1
 
-val_user_num = 0
-val_tag_num = 0
-val_item_num = 0
-
 #
 # dictionary of positive/negative instances
 # (key: (vertex, vertex, vertex), value: [vertex])
@@ -228,6 +224,7 @@ print('mat_a_tt : ' + str(shape(mat_a_tt)))
 #
 # D_U^{-1} => Eq.(8)
 #
+
 vec_sum_col_u = csr_matrix(np.ones((1, val_user_num)) * mat_a_uu +
                            np.ones((1, val_item_num)) * mat_a_iu +
                            np.ones((1, val_tag_num)) * mat_a_tu)
@@ -374,14 +371,18 @@ for line in list_training_instance:
     vec_y_u = np.zeros((val_user_num, 1))
     vec_y_i = np.zeros((val_item_num, 1))
 
+    ''''
     # preference vector
     vec_p_u = np.zeros((val_user_num, 1))
     vec_p_i = np.zeros((val_item_num, 1))
+    '''
     vec_p_t = np.zeros((val_tag_num, 1))
 
+    '''
     # query vector
     vec_q_u = np.zeros((val_user_num, 1))
     vec_q_i = np.zeros((val_item_num, 1))
+    '''
     vec_q_t = np.zeros((val_tag_num, 1))
 
     if val_sizeof_positive_tags == 0 or val_sizeof_negative_tags == 0:
@@ -423,7 +424,7 @@ for line in list_training_instance:
     #
     # Calculate the distribution by random walk with restart
     #
-    for itr in range(iter_num):
+    for r in range(iter_num):
         tmp = mat_a_uu_col_norm * vec_q_u + mat_a_ui_col_norm * vec_q_i + mat_a_ut_col_norm * vec_q_t
         vec_q_u = (1 - val_alpha) * tmp + val_alpha * vec_p_u
         
@@ -549,7 +550,7 @@ for line in list_training_instance:
     #
     # calculate the derivatives of Theta by markovian process
     #
-    for itr in range(iter_num):
+    for r in range(iter_num):
 
         for i in range(val_feature_num_uu):
             vecPU_UUt = csr_matrix(mat_drv_vec_p_u_drv_vec_theta_uu[:, i]).transpose()
@@ -802,8 +803,8 @@ for line in list_training_instance:
             s_Xi_U = mat_drv_vec_p_t_drv_vec_xi_u[n_ins, :] - mat_drv_vec_p_t_drv_vec_xi_u[p_ins, :]
             s_Xi_I = mat_drv_vec_p_t_drv_vec_xi_i[n_ins, :] - mat_drv_vec_p_t_drv_vec_xi_i[p_ins, :]
 
-            vec_drv_val_j_drv_vec_xi_u = vec_drv_val_j_drv_vec_xi_u + val_beta * s * (1 - s) * s_Xi_U
-            vec_drv_val_j_drv_vec_xi_i = vec_drv_val_j_drv_vec_xi_i + val_beta * s * (1 - s) * s_Xi_I
+            vec_drv_val_j_drv_vec_xi_u += val_beta * s * (1 - s) * s_Xi_U
+            vec_drv_val_j_drv_vec_xi_i += val_beta * s * (1 - s) * s_Xi_I
 
     J /= val_sizeof_positive_tags * val_sizeof_negative_tags
 
@@ -862,7 +863,7 @@ for line in list_training_instance:
     if len(vec_drv_val_j_drv_vec_theta_tt) > 0:
         val_diff_theta += transpose(vec_drv_val_j_drv_vec_theta_tt) * vec_drv_val_j_drv_vec_theta_tt
 
-    val_diff_theta = val_diff_theta[0]
+    val_diff_theta = val_diff_theta
 
     val_diff_xi = transpose(vec_drv_val_j_drv_vec_xi_u) * vec_drv_val_j_drv_vec_xi_u
     val_diff_xi += transpose(vec_drv_val_j_drv_vec_xi_u) * vec_drv_val_j_drv_vec_xi_u
